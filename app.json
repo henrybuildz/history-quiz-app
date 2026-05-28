@@ -20,6 +20,18 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "plugins": [
+      "expo-router",
+      "expo-sqlite",
+      "expo-secure-store"
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "1fb08f07-1a5e-4279-9bd1-16bda10dde4f"
+      }
+    },
+    "owner": "henryapps"
   }
 }
