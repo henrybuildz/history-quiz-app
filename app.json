@@ -1,17 +1,19 @@
 {
   "expo": {
-    "name": "history-quiz-app",
+    "name": "History Quiz",
     "slug": "history-quiz-app",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": false,
+      "bundleIdentifier": "com.henryapps.historyquiz"
     },
     "android": {
+      "package": "com.henryapps.historyquiz",
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#FDF6EC",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
@@ -24,7 +26,18 @@
     "plugins": [
       "expo-router",
       "expo-sqlite",
-      "expo-secure-store"
+      "expo-secure-store",
+      "expo-splash-screen",
+      [
+        "expo-font",
+        {
+          "fonts": [
+            "./assets/fonts/Cinzel-Regular.ttf",
+            "./assets/fonts/Cinzel-Bold.ttf"
+          ]
+        }
+      ],
+      "expo-dev-client"
     ],
     "extra": {
       "router": {},

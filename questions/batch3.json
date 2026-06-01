@@ -1,0 +1,1402 @@
+[
+  {
+    "question_text": "What was the name of Germany's invasion of the Soviet Union?",
+    "correct_answer": "Operation Barbarossa",
+    "era": "World War II",
+    "difficulty": 2,
+    "distractors": [
+      "Operation Sea Lion",
+      "Operation Citadel",
+      "Operation Blue"
+    ],
+    "explanation": null,
+    "topic": null,
+    "is_approved": true
+  },
+  {
+    "question_text": "Which Pacific battle in 1942 was a turning point against Japan?",
+    "correct_answer": "Battle of Midway",
+    "era": "World War II",
+    "difficulty": 2,
+    "distractors": [
+      "Battle of Coral Sea",
+      "Battle of Guadalcanal",
+      "Battle of the Philippine Sea"
+    ],
+    "explanation": null,
+    "topic": null,
+    "is_approved": true
+  },
+  {
+    "question_text": "Who commanded Allied forces in Europe on D-Day?",
+    "correct_answer": "Dwight D. Eisenhower",
+    "era": "World War II",
+    "difficulty": 2,
+    "distractors": [
+      "Bernard Montgomery",
+      "George Patton",
+      "Omar Bradley"
+    ],
+    "explanation": null,
+    "topic": null,
+    "is_approved": true
+  },
+  {
+    "question_text": "What was the German strategy of fast armored warfare called?",
+    "correct_answer": "Blitzkrieg",
+    "era": "World War II",
+    "difficulty": 2,
+    "distractors": [
+      "Auftragstaktik",
+      "Schwerpunkt",
+      "Kesselschlacht"
+    ],
+    "explanation": null,
+    "topic": null,
+    "is_approved": true
+  },
+  {
+    "question_text": "What secret project developed the first atomic bomb?",
+    "correct_answer": "Manhattan Project",
+    "era": "World War II",
+    "difficulty": 2,
+    "distractors": [
+      "Tube Alloys",
+      "S-1 Committee",
+      "Alsos Mission"
+    ],
+    "explanation": null,
+    "topic": null,
+    "is_approved": true
+  },
+  {
+    "question_text": "Who was Japan's Prime Minister during the attack on Pearl Harbor?",
+    "correct_answer": "Hideki Tojo",
+    "era": "World War II",
+    "difficulty": 3,
+    "distractors": [
+      "Fumimaro Konoe",
+      "Kiichiro Hiranuma",
+      "Mitsumasa Yonai"
+    ],
+    "explanation": null,
+    "topic": null,
+    "is_approved": true
+  },
+  {
+    "question_text": "What was the Luftwaffe's campaign against Britain in 1940 called?",
+    "correct_answer": "Battle of Britain",
+    "era": "World War II",
+    "difficulty": 2,
+    "distractors": [
+      "The Blitz",
+      "Eagle Attack",
+      "Operation Sea Lion"
+    ],
+    "explanation": null,
+    "topic": null,
+    "is_approved": true
+  },
+  {
+    "question_text": "Who was the Italian dictator who allied with Hitler?",
+    "correct_answer": "Benito Mussolini",
+    "era": "World War II",
+    "difficulty": 1,
+    "distractors": [
+      "Victor Emmanuel III",
+      "Pietro Badoglio",
+      "Italo Balbo"
+    ],
+    "explanation": null,
+    "topic": null,
+    "is_approved": true
+  },
+  {
+    "question_text": "Which German general was known as the Desert Fox?",
+    "correct_answer": "Erwin Rommel",
+    "era": "World War II",
+    "difficulty": 2,
+    "distractors": [
+      "Heinz Guderian",
+      "Erich von Manstein",
+      "Walter Model"
+    ],
+    "explanation": null,
+    "topic": null,
+    "is_approved": true
+  },
+  {
+    "question_text": "Which Japanese city was bombed by the second atomic bomb?",
+    "correct_answer": "Nagasaki",
+    "era": "World War II",
+    "difficulty": 1,
+    "distractors": [
+      "Osaka",
+      "Kyoto",
+      "Kobe"
+    ],
+    "explanation": null,
+    "topic": null,
+    "is_approved": true
+  },
+  {
+    "question_text": "Who was the Free French leader who rallied resistance from London?",
+    "correct_answer": "Charles de Gaulle",
+    "era": "World War II",
+    "difficulty": 2,
+    "distractors": [
+      "Henri Giraud",
+      "Philippe Petain",
+      "Jean Moulin"
+    ],
+    "explanation": null,
+    "topic": null,
+    "is_approved": true
+  },
+  {
+    "question_text": "What was the name of the German offensive in the Ardennes in 1944?",
+    "correct_answer": "Battle of the Bulge",
+    "era": "World War II",
+    "difficulty": 2,
+    "distractors": [
+      "Operation Watch on the Rhine",
+      "Ardennes Offensive",
+      "Autumn Mist"
+    ],
+    "explanation": null,
+    "topic": null,
+    "is_approved": true
+  },
+  {
+    "question_text": "Who led the Soviet forces at the Battle of Stalingrad?",
+    "correct_answer": "Georgy Zhukov",
+    "era": "World War II",
+    "difficulty": 3,
+    "distractors": [
+      "Vasily Chuikov",
+      "Aleksandr Vasilevsky",
+      "Konstantin Rokossovsky"
+    ],
+    "explanation": null,
+    "topic": null,
+    "is_approved": true
+  },
+  {
+    "question_text": "Which battle ended German ambitions in the East in 1943?",
+    "correct_answer": "Battle of Kursk",
+    "era": "World War II",
+    "difficulty": 3,
+    "distractors": [
+      "Battle of Stalingrad",
+      "Battle of Moscow",
+      "Battle of Kharkov"
+    ],
+    "explanation": null,
+    "topic": null,
+    "is_approved": true
+  },
+  {
+    "question_text": "What conference set the terms of German unconditional surrender?",
+    "correct_answer": "Casablanca Conference",
+    "era": "World War II",
+    "difficulty": 3,
+    "distractors": [
+      "Tehran Conference",
+      "Yalta Conference",
+      "Potsdam Conference"
+    ],
+    "explanation": null,
+    "topic": null,
+    "is_approved": true
+  },
+  {
+    "question_text": "Which island battle was the most costly in the Pacific?",
+    "correct_answer": "Battle of Okinawa",
+    "era": "World War II",
+    "difficulty": 3,
+    "distractors": [
+      "Battle of Iwo Jima",
+      "Battle of Guadalcanal",
+      "Battle of Tarawa"
+    ],
+    "explanation": null,
+    "topic": null,
+    "is_approved": true
+  },
+  {
+    "question_text": "What was the codeword for the Allied deception plan before D-Day?",
+    "correct_answer": "Operation Bodyguard",
+    "era": "World War II",
+    "difficulty": 3,
+    "distractors": [
+      "Operation Fortitude",
+      "Operation Quicksilver",
+      "Operation Overlord"
+    ],
+    "explanation": null,
+    "topic": null,
+    "is_approved": true
+  },
+  {
+    "question_text": "What was the name of Hitler's personal bodyguard unit?",
+    "correct_answer": "Leibstandarte SS Adolf Hitler",
+    "era": "World War II",
+    "difficulty": 3,
+    "distractors": [
+      "Wehrmacht Guard",
+      "Waffen-SS",
+      "Gestapo"
+    ],
+    "explanation": null,
+    "topic": null,
+    "is_approved": true
+  },
+  {
+    "question_text": "Which German general defended Stalingrad?",
+    "correct_answer": "Friedrich Paulus",
+    "era": "World War II",
+    "difficulty": 3,
+    "distractors": [
+      "Erich von Manstein",
+      "Hermann Hoth",
+      "Walter Model"
+    ],
+    "explanation": null,
+    "topic": null,
+    "is_approved": true
+  },
+  {
+    "question_text": "What was the Allied supply route to the Soviet Union called?",
+    "correct_answer": "Lend-Lease Program",
+    "era": "World War II",
+    "difficulty": 3,
+    "distractors": [
+      "Arctic Convoy",
+      "Persian Corridor",
+      "Trans-Siberian Route"
+    ],
+    "explanation": null,
+    "topic": null,
+    "is_approved": true
+  },
+  {
+    "question_text": "What was the name of the Soviet-US standoff in 1962?",
+    "correct_answer": "Cuban Missile Crisis",
+    "era": "Cold War",
+    "difficulty": 2,
+    "distractors": [
+      "Berlin Crisis",
+      "Korean War",
+      "Suez Crisis"
+    ],
+    "explanation": null,
+    "topic": null,
+    "is_approved": true
+  },
+  {
+    "question_text": "Who delivered the Iron Curtain speech in 1946?",
+    "correct_answer": "Winston Churchill",
+    "era": "Cold War",
+    "difficulty": 2,
+    "distractors": [
+      "Harry Truman",
+      "George Marshall",
+      "Dean Acheson"
+    ],
+    "explanation": null,
+    "topic": null,
+    "is_approved": true
+  },
+  {
+    "question_text": "Who was the first human in space?",
+    "correct_answer": "Yuri Gagarin",
+    "era": "Cold War",
+    "difficulty": 1,
+    "distractors": [
+      "Alan Shepard",
+      "John Glenn",
+      "Gherman Titov"
+    ],
+    "explanation": null,
+    "topic": null,
+    "is_approved": true
+  },
+  {
+    "question_text": "What military alliance was founded by Western nations in 1949?",
+    "correct_answer": "NATO",
+    "era": "Cold War",
+    "difficulty": 1,
+    "distractors": [
+      "SEATO",
+      "Warsaw Pact",
+      "ANZUS"
+    ],
+    "explanation": null,
+    "topic": null,
+    "is_approved": true
+  },
+  {
+    "question_text": "Who was the US President during the Cuban Missile Crisis?",
+    "correct_answer": "John F. Kennedy",
+    "era": "Cold War",
+    "difficulty": 2,
+    "distractors": [
+      "Lyndon B. Johnson",
+      "Dwight Eisenhower",
+      "Richard Nixon"
+    ],
+    "explanation": null,
+    "topic": null,
+    "is_approved": true
+  },
+  {
+    "question_text": "What plan gave US aid to rebuild postwar Europe?",
+    "correct_answer": "Marshall Plan",
+    "era": "Cold War",
+    "difficulty": 2,
+    "distractors": [
+      "Truman Doctrine",
+      "Lend-Lease",
+      "European Recovery Program"
+    ],
+    "explanation": null,
+    "topic": null,
+    "is_approved": true
+  },
+  {
+    "question_text": "What was the name of the first human-made satellite?",
+    "correct_answer": "Sputnik 1",
+    "era": "Cold War",
+    "difficulty": 2,
+    "distractors": [
+      "Explorer 1",
+      "Vostok 1",
+      "Luna 1"
+    ],
+    "explanation": null,
+    "topic": null,
+    "is_approved": true
+  },
+  {
+    "question_text": "Who was Soviet leader during the Cuban Missile Crisis?",
+    "correct_answer": "Nikita Khrushchev",
+    "era": "Cold War",
+    "difficulty": 2,
+    "distractors": [
+      "Joseph Stalin",
+      "Leonid Brezhnev",
+      "Georgy Malenkov"
+    ],
+    "explanation": null,
+    "topic": null,
+    "is_approved": true
+  },
+  {
+    "question_text": "What was the name of the CIA-backed invasion of Cuba in 1961?",
+    "correct_answer": "Bay of Pigs",
+    "era": "Cold War",
+    "difficulty": 2,
+    "distractors": [
+      "Operation Mongoose",
+      "Operation Zapata",
+      "Bay of Cuba Invasion"
+    ],
+    "explanation": null,
+    "topic": null,
+    "is_approved": true
+  },
+  {
+    "question_text": "Which country was divided at the 38th parallel after WWII?",
+    "correct_answer": "Korea",
+    "era": "Cold War",
+    "difficulty": 2,
+    "distractors": [
+      "Vietnam",
+      "Germany",
+      "Austria"
+    ],
+    "explanation": null,
+    "topic": null,
+    "is_approved": true
+  },
+  {
+    "question_text": "Who was the first woman in space?",
+    "correct_answer": "Valentina Tereshkova",
+    "era": "Cold War",
+    "difficulty": 2,
+    "distractors": [
+      "Sally Ride",
+      "Svetlana Savitskaya",
+      "Eileen Collins"
+    ],
+    "explanation": null,
+    "topic": null,
+    "is_approved": true
+  },
+  {
+    "question_text": "Who was the last leader of the Soviet Union?",
+    "correct_answer": "Mikhail Gorbachev",
+    "era": "Cold War",
+    "difficulty": 2,
+    "distractors": [
+      "Konstantin Chernenko",
+      "Yuri Andropov",
+      "Boris Yeltsin"
+    ],
+    "explanation": null,
+    "topic": null,
+    "is_approved": true
+  },
+  {
+    "question_text": "In which year did the Berlin Wall fall?",
+    "correct_answer": "1989",
+    "era": "Cold War",
+    "difficulty": 1,
+    "distractors": [
+      "1990",
+      "1991",
+      "1988"
+    ],
+    "explanation": null,
+    "topic": null,
+    "is_approved": true
+  },
+  {
+    "question_text": "What was the Soviet secret police called during the Cold War?",
+    "correct_answer": "KGB",
+    "era": "Cold War",
+    "difficulty": 2,
+    "distractors": [
+      "NKVD",
+      "MVD",
+      "GRU"
+    ],
+    "explanation": null,
+    "topic": null,
+    "is_approved": true
+  },
+  {
+    "question_text": "Which country did the Soviet Union invade in 1979?",
+    "correct_answer": "Afghanistan",
+    "era": "Cold War",
+    "difficulty": 2,
+    "distractors": [
+      "Poland",
+      "Hungary",
+      "Czechoslovakia"
+    ],
+    "explanation": null,
+    "topic": null,
+    "is_approved": true
+  },
+  {
+    "question_text": "What was the Czech reform movement crushed by Soviet tanks in 1968?",
+    "correct_answer": "Prague Spring",
+    "era": "Cold War",
+    "difficulty": 2,
+    "distractors": [
+      "Hungarian Revolution",
+      "Solidarity movement",
+      "Charter 77"
+    ],
+    "explanation": null,
+    "topic": null,
+    "is_approved": true
+  },
+  {
+    "question_text": "Who was the Polish Solidarity leader who became president?",
+    "correct_answer": "Lech Walesa",
+    "era": "Cold War",
+    "difficulty": 2,
+    "distractors": [
+      "Tadeusz Mazowiecki",
+      "Wojciech Jaruzelski",
+      "Bronislaw Geremek"
+    ],
+    "explanation": null,
+    "topic": null,
+    "is_approved": true
+  },
+  {
+    "question_text": "Which US spy plane was shot down over the Soviet Union in 1960?",
+    "correct_answer": "U-2",
+    "era": "Cold War",
+    "difficulty": 2,
+    "distractors": [
+      "SR-71",
+      "RB-47",
+      "U-1"
+    ],
+    "explanation": null,
+    "topic": null,
+    "is_approved": true
+  },
+  {
+    "question_text": "What was the Strategic Defense Initiative nicknamed?",
+    "correct_answer": "Star Wars",
+    "era": "Cold War",
+    "difficulty": 2,
+    "distractors": [
+      "Shield",
+      "Space Defense",
+      "Iron Dome"
+    ],
+    "explanation": null,
+    "topic": null,
+    "is_approved": true
+  },
+  {
+    "question_text": "What divided Germany into East and West during the Cold War?",
+    "correct_answer": "Berlin Wall",
+    "era": "Cold War",
+    "difficulty": 1,
+    "distractors": [
+      "Iron Curtain",
+      "Checkpoint Charlie",
+      "Oder-Neisse Line"
+    ],
+    "explanation": null,
+    "topic": null,
+    "is_approved": true
+  },
+  {
+    "question_text": "Which war lasted thirty years from 1618 to 1648?",
+    "correct_answer": "Thirty Years' War",
+    "era": "Early Modern Europe",
+    "difficulty": 2,
+    "distractors": [
+      "Seven Years' War",
+      "Wars of Religion",
+      "Nine Years' War"
+    ],
+    "explanation": null,
+    "topic": null,
+    "is_approved": true
+  },
+  {
+    "question_text": "Who was the Sun King of France?",
+    "correct_answer": "Louis XIV",
+    "era": "Early Modern Europe",
+    "difficulty": 1,
+    "distractors": [
+      "Louis XIII",
+      "Louis XV",
+      "Francis I"
+    ],
+    "explanation": null,
+    "topic": null,
+    "is_approved": true
+  },
+  {
+    "question_text": "Which English monarch was known as the Virgin Queen?",
+    "correct_answer": "Elizabeth I",
+    "era": "Early Modern Europe",
+    "difficulty": 1,
+    "distractors": [
+      "Mary I",
+      "Anne",
+      "Mary II"
+    ],
+    "explanation": null,
+    "topic": null,
+    "is_approved": true
+  },
+  {
+    "question_text": "What was the name of the Spanish fleet defeated by England in 1588?",
+    "correct_answer": "Spanish Armada",
+    "era": "Early Modern Europe",
+    "difficulty": 1,
+    "distractors": [
+      "The Invincible Fleet",
+      "Gran Armada",
+      "Philip's Fleet"
+    ],
+    "explanation": null,
+    "topic": null,
+    "is_approved": true
+  },
+  {
+    "question_text": "Who wrote Two Treatises of Government influencing liberal democracy?",
+    "correct_answer": "John Locke",
+    "era": "Early Modern Europe",
+    "difficulty": 2,
+    "distractors": [
+      "Thomas Hobbes",
+      "Jean-Jacques Rousseau",
+      "Montesquieu"
+    ],
+    "explanation": null,
+    "topic": null,
+    "is_approved": true
+  },
+  {
+    "question_text": "What palace became synonymous with French royal absolutism?",
+    "correct_answer": "Palace of Versailles",
+    "era": "Early Modern Europe",
+    "difficulty": 1,
+    "distractors": [
+      "Louvre",
+      "Tuileries",
+      "Fontainebleau"
+    ],
+    "explanation": null,
+    "topic": null,
+    "is_approved": true
+  },
+  {
+    "question_text": "Which Russian ruler is known for Westernizing Russia?",
+    "correct_answer": "Peter the Great",
+    "era": "Early Modern Europe",
+    "difficulty": 2,
+    "distractors": [
+      "Catherine the Great",
+      "Ivan the Terrible",
+      "Alexander I"
+    ],
+    "explanation": null,
+    "topic": null,
+    "is_approved": true
+  },
+  {
+    "question_text": "Who rose to power after the French Revolution and became Emperor?",
+    "correct_answer": "Napoleon Bonaparte",
+    "era": "Early Modern Europe",
+    "difficulty": 1,
+    "distractors": [
+      "Jean-Paul Marat",
+      "Maximilien Robespierre",
+      "Georges Danton"
+    ],
+    "explanation": null,
+    "topic": null,
+    "is_approved": true
+  },
+  {
+    "question_text": "Which battle ended Napoleon's Hundred Days?",
+    "correct_answer": "Battle of Waterloo",
+    "era": "Early Modern Europe",
+    "difficulty": 2,
+    "distractors": [
+      "Battle of Leipzig",
+      "Battle of Austerlitz",
+      "Battle of Borodino"
+    ],
+    "explanation": null,
+    "topic": null,
+    "is_approved": true
+  },
+  {
+    "question_text": "What name was given to the radical phase of the French Revolution?",
+    "correct_answer": "Reign of Terror",
+    "era": "Early Modern Europe",
+    "difficulty": 2,
+    "distractors": [
+      "Directory Period",
+      "Thermidorian Reaction",
+      "National Convention"
+    ],
+    "explanation": null,
+    "topic": null,
+    "is_approved": true
+  },
+  {
+    "question_text": "Which Enlightenment writer championed freedom of speech and religious tolerance?",
+    "correct_answer": "Voltaire",
+    "era": "Early Modern Europe",
+    "difficulty": 2,
+    "distractors": [
+      "Rousseau",
+      "Diderot",
+      "Montesquieu"
+    ],
+    "explanation": null,
+    "topic": null,
+    "is_approved": true
+  },
+  {
+    "question_text": "What was the Congress of Vienna aimed to do?",
+    "correct_answer": "Restore European order after Napoleon",
+    "era": "Early Modern Europe",
+    "difficulty": 2,
+    "distractors": [
+      "Divide conquered territories",
+      "Establish free trade",
+      "Create a European parliament"
+    ],
+    "explanation": null,
+    "topic": null,
+    "is_approved": true
+  },
+  {
+    "question_text": "Who was the Habsburg empress who fought the War of Austrian Succession?",
+    "correct_answer": "Maria Theresa",
+    "era": "Early Modern Europe",
+    "difficulty": 2,
+    "distractors": [
+      "Marie Antoinette",
+      "Christina of Sweden",
+      "Isabella of Castile"
+    ],
+    "explanation": null,
+    "topic": null,
+    "is_approved": true
+  },
+  {
+    "question_text": "Which French cardinal dominated politics under Louis XIII?",
+    "correct_answer": "Cardinal Richelieu",
+    "era": "Early Modern Europe",
+    "difficulty": 2,
+    "distractors": [
+      "Cardinal Mazarin",
+      "Cardinal de la Balue",
+      "Cardinal d'Amboise"
+    ],
+    "explanation": null,
+    "topic": null,
+    "is_approved": true
+  },
+  {
+    "question_text": "What was the name of the English revolution that removed James II in 1688?",
+    "correct_answer": "Glorious Revolution",
+    "era": "Early Modern Europe",
+    "difficulty": 2,
+    "distractors": [
+      "Puritan Revolution",
+      "English Civil War",
+      "Parliamentary Revolution"
+    ],
+    "explanation": null,
+    "topic": null,
+    "is_approved": true
+  },
+  {
+    "question_text": "Which treaty ended the War of the Spanish Succession?",
+    "correct_answer": "Treaty of Utrecht",
+    "era": "Early Modern Europe",
+    "difficulty": 3,
+    "distractors": [
+      "Peace of Ryswick",
+      "Treaty of Rastatt",
+      "Peace of Baden"
+    ],
+    "explanation": null,
+    "topic": null,
+    "is_approved": true
+  },
+  {
+    "question_text": "Which Swedish king was called the Lion of the North?",
+    "correct_answer": "Gustavus Adolphus",
+    "era": "Early Modern Europe",
+    "difficulty": 3,
+    "distractors": [
+      "Charles X Gustav",
+      "Charles XII",
+      "Frederick I"
+    ],
+    "explanation": null,
+    "topic": null,
+    "is_approved": true
+  },
+  {
+    "question_text": "Who was Frederick the Great king of?",
+    "correct_answer": "Prussia",
+    "era": "Early Modern Europe",
+    "difficulty": 2,
+    "distractors": [
+      "Austria",
+      "Bavaria",
+      "Saxony"
+    ],
+    "explanation": null,
+    "topic": null,
+    "is_approved": true
+  },
+  {
+    "question_text": "Which philosopher wrote Critique of Pure Reason?",
+    "correct_answer": "Immanuel Kant",
+    "era": "Early Modern Europe",
+    "difficulty": 2,
+    "distractors": [
+      "David Hume",
+      "George Berkeley",
+      "Rene Descartes"
+    ],
+    "explanation": null,
+    "topic": null,
+    "is_approved": true
+  },
+  {
+    "question_text": "What was Napoleon's legal code reform called?",
+    "correct_answer": "Napoleonic Code",
+    "era": "Early Modern Europe",
+    "difficulty": 2,
+    "distractors": [
+      "Consulate System",
+      "Directory system",
+      "Prefectoral system"
+    ],
+    "explanation": null,
+    "topic": null,
+    "is_approved": true
+  },
+  {
+    "question_text": "Which ancient African kingdom controlled the Nile region south of Egypt?",
+    "correct_answer": "Kingdom of Kush",
+    "era": "Africa",
+    "difficulty": 3,
+    "distractors": [
+      "Axum",
+      "Ghana Empire",
+      "Mali Empire"
+    ],
+    "explanation": null,
+    "topic": null,
+    "is_approved": true
+  },
+  {
+    "question_text": "Who was the wealthy Mali ruler who made a famous pilgrimage to Mecca?",
+    "correct_answer": "Mansa Musa",
+    "era": "Africa",
+    "difficulty": 2,
+    "distractors": [
+      "Sundiata Keita",
+      "Askia Muhammad",
+      "Kankan Musa"
+    ],
+    "explanation": null,
+    "topic": null,
+    "is_approved": true
+  },
+  {
+    "question_text": "Which African country was never colonized by Europeans?",
+    "correct_answer": "Ethiopia",
+    "era": "Africa",
+    "difficulty": 2,
+    "distractors": [
+      "Liberia",
+      "Egypt",
+      "Morocco"
+    ],
+    "explanation": null,
+    "topic": null,
+    "is_approved": true
+  },
+  {
+    "question_text": "What was the name of the South African system of racial segregation?",
+    "correct_answer": "Apartheid",
+    "era": "Africa",
+    "difficulty": 1,
+    "distractors": [
+      "Jim Crow",
+      "Segregation",
+      "Colonial rule"
+    ],
+    "explanation": null,
+    "topic": null,
+    "is_approved": true
+  },
+  {
+    "question_text": "Who was the first president of independent Ghana?",
+    "correct_answer": "Kwame Nkrumah",
+    "era": "Africa",
+    "difficulty": 3,
+    "distractors": [
+      "J.B. Danquah",
+      "Kofi Abrefa Busia",
+      "Edward Akufo-Addo"
+    ],
+    "explanation": null,
+    "topic": null,
+    "is_approved": true
+  },
+  {
+    "question_text": "Which Egyptian president nationalized the Suez Canal?",
+    "correct_answer": "Gamal Abdel Nasser",
+    "era": "Africa",
+    "difficulty": 2,
+    "distractors": [
+      "Anwar Sadat",
+      "Muhammad Naguib",
+      "Hosni Mubarak"
+    ],
+    "explanation": null,
+    "topic": null,
+    "is_approved": true
+  },
+  {
+    "question_text": "Which battle ended the Italo-Ethiopian War with Ethiopian victory?",
+    "correct_answer": "Battle of Adwa",
+    "era": "Africa",
+    "difficulty": 3,
+    "distractors": [
+      "Battle of Mekelle",
+      "Battle of Amba Alagi",
+      "Battle of Dogali"
+    ],
+    "explanation": null,
+    "topic": null,
+    "is_approved": true
+  },
+  {
+    "question_text": "Which war saw Britain fight the Boers in South Africa?",
+    "correct_answer": "Second Boer War",
+    "era": "Africa",
+    "difficulty": 2,
+    "distractors": [
+      "Zulu War",
+      "Matabele War",
+      "Anglo-Afghan War"
+    ],
+    "explanation": null,
+    "topic": null,
+    "is_approved": true
+  },
+  {
+    "question_text": "Which African nation was established as a home for freed American slaves?",
+    "correct_answer": "Liberia",
+    "era": "Africa",
+    "difficulty": 2,
+    "distractors": [
+      "Sierra Leone",
+      "Senegal",
+      "Ghana"
+    ],
+    "explanation": null,
+    "topic": null,
+    "is_approved": true
+  },
+  {
+    "question_text": "Who was the first African to win the Nobel Peace Prize?",
+    "correct_answer": "Albert Luthuli",
+    "era": "Africa",
+    "difficulty": 3,
+    "distractors": [
+      "Nelson Mandela",
+      "Desmond Tutu",
+      "Kofi Annan"
+    ],
+    "explanation": null,
+    "topic": null,
+    "is_approved": true
+  },
+  {
+    "question_text": "Who was the first president of Kenya?",
+    "correct_answer": "Jomo Kenyatta",
+    "era": "Africa",
+    "difficulty": 2,
+    "distractors": [
+      "Daniel arap Moi",
+      "Oginga Odinga",
+      "Tom Mboya"
+    ],
+    "explanation": null,
+    "topic": null,
+    "is_approved": true
+  },
+  {
+    "question_text": "Which African country was formerly known as Rhodesia?",
+    "correct_answer": "Zimbabwe",
+    "era": "Africa",
+    "difficulty": 1,
+    "distractors": [
+      "Zambia",
+      "Malawi",
+      "Mozambique"
+    ],
+    "explanation": null,
+    "topic": null,
+    "is_approved": true
+  },
+  {
+    "question_text": "Who was the Algerian independence leader and first president?",
+    "correct_answer": "Ahmed Ben Bella",
+    "era": "Africa",
+    "difficulty": 3,
+    "distractors": [
+      "Ferhat Abbas",
+      "Houari Boumediene",
+      "Abane Ramdane"
+    ],
+    "explanation": null,
+    "topic": null,
+    "is_approved": true
+  },
+  {
+    "question_text": "Which East African civilization built stone enclosures called Zimbabwe?",
+    "correct_answer": "Great Zimbabwe culture",
+    "era": "Africa",
+    "difficulty": 3,
+    "distractors": [
+      "Swahili Coast peoples",
+      "Zulu Kingdom",
+      "Buganda Kingdom"
+    ],
+    "explanation": null,
+    "topic": null,
+    "is_approved": true
+  },
+  {
+    "question_text": "Who founded the Zulu kingdom in the early 19th century?",
+    "correct_answer": "Shaka Zulu",
+    "era": "Africa",
+    "difficulty": 2,
+    "distractors": [
+      "Cetshwayo",
+      "Dingane",
+      "Mpande"
+    ],
+    "explanation": null,
+    "topic": null,
+    "is_approved": true
+  },
+  {
+    "question_text": "Which ancient trading empire was located in modern-day Ethiopia and Eritrea?",
+    "correct_answer": "Kingdom of Aksum",
+    "era": "Africa",
+    "difficulty": 3,
+    "distractors": [
+      "Nubia",
+      "Kush",
+      "Punt"
+    ],
+    "explanation": null,
+    "topic": null,
+    "is_approved": true
+  },
+  {
+    "question_text": "Which empire controlled trans-Saharan gold and salt trade routes?",
+    "correct_answer": "Ghana Empire",
+    "era": "Africa",
+    "difficulty": 3,
+    "distractors": [
+      "Mali Empire",
+      "Songhai Empire",
+      "Kanem-Bornu"
+    ],
+    "explanation": null,
+    "topic": null,
+    "is_approved": true
+  },
+  {
+    "question_text": "What was the Berlin Conference of 1884-85 about?",
+    "correct_answer": "Partitioning Africa among European powers",
+    "era": "Africa",
+    "difficulty": 2,
+    "distractors": [
+      "Establishing trade routes",
+      "Ending the slave trade",
+      "Setting colonial borders"
+    ],
+    "explanation": null,
+    "topic": null,
+    "is_approved": true
+  },
+  {
+    "question_text": "Who was the Songhai ruler who made Timbuktu a center of Islamic learning?",
+    "correct_answer": "Askia Muhammad",
+    "era": "Africa",
+    "difficulty": 4,
+    "distractors": [
+      "Sunni Ali",
+      "Mansa Musa",
+      "Abu Bakr II"
+    ],
+    "explanation": null,
+    "topic": null,
+    "is_approved": true
+  },
+  {
+    "question_text": "Who was the Zulu king who fought the British at Isandlwana?",
+    "correct_answer": "Cetshwayo",
+    "era": "Africa",
+    "difficulty": 2,
+    "distractors": [
+      "Shaka",
+      "Dingane",
+      "Mpande"
+    ],
+    "explanation": null,
+    "topic": null,
+    "is_approved": true
+  },
+  {
+    "question_text": "Which Mughal emperor built the Taj Mahal?",
+    "correct_answer": "Shah Jahan",
+    "era": "South Asia",
+    "difficulty": 1,
+    "distractors": [
+      "Akbar",
+      "Aurangzeb",
+      "Jahangir"
+    ],
+    "explanation": null,
+    "topic": null,
+    "is_approved": true
+  },
+  {
+    "question_text": "Who led Indian independence from Britain nonviolently?",
+    "correct_answer": "Mahatma Gandhi",
+    "era": "South Asia",
+    "difficulty": 1,
+    "distractors": [
+      "Jawaharlal Nehru",
+      "Subhas Chandra Bose",
+      "Bal Gangadhar Tilak"
+    ],
+    "explanation": null,
+    "topic": null,
+    "is_approved": true
+  },
+  {
+    "question_text": "Which event in 1947 divided British India into two countries?",
+    "correct_answer": "Partition of India",
+    "era": "South Asia",
+    "difficulty": 1,
+    "distractors": [
+      "Indian Independence",
+      "Salt March",
+      "Quit India Movement"
+    ],
+    "explanation": null,
+    "topic": null,
+    "is_approved": true
+  },
+  {
+    "question_text": "Who founded the Sikh religion?",
+    "correct_answer": "Guru Nanak",
+    "era": "South Asia",
+    "difficulty": 2,
+    "distractors": [
+      "Guru Gobind Singh",
+      "Guru Arjan",
+      "Guru Tegh Bahadur"
+    ],
+    "explanation": null,
+    "topic": null,
+    "is_approved": true
+  },
+  {
+    "question_text": "Who was the Mauryan emperor famous for converting to Buddhism?",
+    "correct_answer": "Ashoka",
+    "era": "South Asia",
+    "difficulty": 2,
+    "distractors": [
+      "Chandragupta",
+      "Bindusara",
+      "Dasharatha"
+    ],
+    "explanation": null,
+    "topic": null,
+    "is_approved": true
+  },
+  {
+    "question_text": "Which Mughal emperor is known for his policy of religious tolerance?",
+    "correct_answer": "Akbar",
+    "era": "South Asia",
+    "difficulty": 2,
+    "distractors": [
+      "Babur",
+      "Humayun",
+      "Jahangir"
+    ],
+    "explanation": null,
+    "topic": null,
+    "is_approved": true
+  },
+  {
+    "question_text": "Who was the first Prime Minister of independent India?",
+    "correct_answer": "Jawaharlal Nehru",
+    "era": "South Asia",
+    "difficulty": 2,
+    "distractors": [
+      "Sardar Patel",
+      "Maulana Azad",
+      "Rajagopalachari"
+    ],
+    "explanation": null,
+    "topic": null,
+    "is_approved": true
+  },
+  {
+    "question_text": "Which dynasty ruled most of India during the golden age of classical culture?",
+    "correct_answer": "Gupta Empire",
+    "era": "South Asia",
+    "difficulty": 3,
+    "distractors": [
+      "Maurya Empire",
+      "Kushan Empire",
+      "Pallava dynasty"
+    ],
+    "explanation": null,
+    "topic": null,
+    "is_approved": true
+  },
+  {
+    "question_text": "What was the name of the ancient Indus Valley city with sophisticated urban planning?",
+    "correct_answer": "Mohenjo-daro",
+    "era": "South Asia",
+    "difficulty": 3,
+    "distractors": [
+      "Harappa",
+      "Dholavira",
+      "Rakhigarhi"
+    ],
+    "explanation": null,
+    "topic": null,
+    "is_approved": true
+  },
+  {
+    "question_text": "Who was the last Mughal emperor?",
+    "correct_answer": "Bahadur Shah II",
+    "era": "South Asia",
+    "difficulty": 3,
+    "distractors": [
+      "Aurangzeb",
+      "Muhammad Shah",
+      "Shah Alam II"
+    ],
+    "explanation": null,
+    "topic": null,
+    "is_approved": true
+  },
+  {
+    "question_text": "Who was the last Viceroy of British India?",
+    "correct_answer": "Lord Mountbatten",
+    "era": "South Asia",
+    "difficulty": 2,
+    "distractors": [
+      "Lord Wavell",
+      "Lord Linlithgow",
+      "Lord Irwin"
+    ],
+    "explanation": null,
+    "topic": null,
+    "is_approved": true
+  },
+  {
+    "question_text": "Who was the founder of the Maratha Confederacy?",
+    "correct_answer": "Shivaji Maharaj",
+    "era": "South Asia",
+    "difficulty": 3,
+    "distractors": [
+      "Bajirao I",
+      "Balaji Vishwanath",
+      "Madhavrao I"
+    ],
+    "explanation": null,
+    "topic": null,
+    "is_approved": true
+  },
+  {
+    "question_text": "Which British general won the Battle of Plassey in 1757?",
+    "correct_answer": "Robert Clive",
+    "era": "South Asia",
+    "difficulty": 2,
+    "distractors": [
+      "Warren Hastings",
+      "Arthur Wellesley",
+      "Charles Cornwallis"
+    ],
+    "explanation": null,
+    "topic": null,
+    "is_approved": true
+  },
+  {
+    "question_text": "What was the name of the great Hindu epic featuring the Kurukshetra War?",
+    "correct_answer": "Mahabharata",
+    "era": "South Asia",
+    "difficulty": 2,
+    "distractors": [
+      "Ramayana",
+      "Puranas",
+      "Vedas"
+    ],
+    "explanation": null,
+    "topic": null,
+    "is_approved": true
+  },
+  {
+    "question_text": "Who founded the Maurya Empire in ancient India?",
+    "correct_answer": "Chandragupta Maurya",
+    "era": "South Asia",
+    "difficulty": 3,
+    "distractors": [
+      "Ashoka",
+      "Bindusara",
+      "Chandragupta II"
+    ],
+    "explanation": null,
+    "topic": null,
+    "is_approved": true
+  },
+  {
+    "question_text": "Which ancient Indian university attracted students from across Asia?",
+    "correct_answer": "Nalanda",
+    "era": "South Asia",
+    "difficulty": 3,
+    "distractors": [
+      "Taxila",
+      "Vikramashila",
+      "Vallabhi"
+    ],
+    "explanation": null,
+    "topic": null,
+    "is_approved": true
+  },
+  {
+    "question_text": "Who wrote the Arthashastra, an ancient text on statecraft?",
+    "correct_answer": "Kautilya (Chanakya)",
+    "era": "South Asia",
+    "difficulty": 3,
+    "distractors": [
+      "Manu",
+      "Vatsyayana",
+      "Kalidasa"
+    ],
+    "explanation": null,
+    "topic": null,
+    "is_approved": true
+  },
+  {
+    "question_text": "Who led the Sepoy Mutiny (Indian Rebellion) of 1857?",
+    "correct_answer": "Mangal Pandey",
+    "era": "South Asia",
+    "difficulty": 3,
+    "distractors": [
+      "Nana Sahib",
+      "Bahadur Shah II",
+      "Rani Lakshmibai"
+    ],
+    "explanation": null,
+    "topic": null,
+    "is_approved": true
+  },
+  {
+    "question_text": "What is the name of the ancient Sanskrit epic about Rama?",
+    "correct_answer": "Ramayana",
+    "era": "South Asia",
+    "difficulty": 2,
+    "distractors": [
+      "Mahabharata",
+      "Arthashastra",
+      "Manusmriti"
+    ],
+    "explanation": null,
+    "topic": null,
+    "is_approved": true
+  },
+  {
+    "question_text": "What was the Muslim Sultanate ruling northern India before the Mughals?",
+    "correct_answer": "Delhi Sultanate",
+    "era": "South Asia",
+    "difficulty": 3,
+    "distractors": [
+      "Deccan Sultanate",
+      "Khilji Sultanate",
+      "Tughlaq Sultanate"
+    ],
+    "explanation": null,
+    "topic": null,
+    "is_approved": true
+  }
+]
