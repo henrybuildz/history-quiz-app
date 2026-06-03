@@ -1,13 +1,11 @@
 import {
   View, Text, TouchableOpacity, StyleSheet,
-  SafeAreaView, StatusBar
+  StatusBar
 } from 'react-native'
+import { SafeAreaView } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
 import { useAuth } from '../../context/AuthContext'
-
-const GOLD = '#D4A843'
-const BG = '#0D0A05'
-const MUTED = '#8A7355'
+import { Colors, Fonts } from '../../constants/theme'
 
 export default function WelcomeScreen() {
   const router = useRouter()
@@ -97,7 +95,7 @@ export default function WelcomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: BG },
+  container: { flex: 1, backgroundColor: Colors.bg },
   backButton: {
     position: 'absolute',
     top: 56,
@@ -108,7 +106,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  backText: { color: MUTED, fontSize: 20 },
+  backText: { color: Colors.textMuted, fontSize: 20 },
   content: {
     flex: 1,
     paddingHorizontal: 32,
@@ -118,16 +116,16 @@ const styles = StyleSheet.create({
   headerSection: { alignItems: 'center', gap: 16 },
   crownIcon: { fontSize: 48 },
   title: {
-    fontFamily: 'Cinzel-Bold',
+    fontFamily: Fonts.displayBold,
     fontSize: 28,
-    color: GOLD,
+    color: Colors.gold,
     textAlign: 'center',
     letterSpacing: 1,
   },
   subtitle: {
-    fontFamily: 'Cinzel-Regular',
+    fontFamily: Fonts.display,
     fontSize: 13,
-    color: MUTED,
+    color: Colors.textMuted,
     textAlign: 'center',
     lineHeight: 22,
   },
@@ -136,7 +134,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: GOLD,
+    backgroundColor: Colors.gold,
     paddingVertical: 16,
     borderRadius: 12,
     gap: 10,
@@ -144,12 +142,12 @@ const styles = StyleSheet.create({
   googleIcon: {
     fontSize: 16,
     fontWeight: '800',
-    color: BG,
+    color: Colors.bg,
   },
   googleText: {
-    fontFamily: 'Cinzel-Bold',
+    fontFamily: Fonts.displayBold,
     fontSize: 15,
-    color: BG,
+    color: Colors.bg,
     letterSpacing: 0.5,
   },
   divider: {
@@ -158,20 +156,20 @@ const styles = StyleSheet.create({
     gap: 12,
     marginVertical: 4,
   },
-  dividerLine: { flex: 1, height: 1, backgroundColor: '#2A2010' },
-  dividerText: { fontFamily: 'Cinzel-Regular', fontSize: 12, color: MUTED },
+  dividerLine: { flex: 1, height: 1, backgroundColor: Colors.border },
+  dividerText: { fontFamily: Fonts.display, fontSize: 12, color: Colors.textMuted },
   emailButton: {
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: GOLD,
+    borderColor: Colors.gold,
     paddingVertical: 16,
     borderRadius: 12,
   },
   emailButtonText: {
-    fontFamily: 'Cinzel-Bold',
+    fontFamily: Fonts.displayBold,
     fontSize: 15,
-    color: GOLD,
+    color: Colors.gold,
     letterSpacing: 0.5,
   },
   createButton: {
@@ -179,18 +177,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingVertical: 14,
     borderRadius: 12,
-    backgroundColor: '#1A1408',
+    backgroundColor: Colors.surface,
   },
   createButtonText: {
-    fontFamily: 'Cinzel-Regular',
+    fontFamily: Fonts.display,
     fontSize: 14,
-    color: MUTED,
+    color: Colors.textMuted,
   },
   guestButton: { alignItems: 'center', paddingVertical: 8 },
   guestText: {
-    fontFamily: 'Cinzel-Regular',
+    fontFamily: Fonts.display,
     fontSize: 12,
-    color: '#4A3D2A',
+    color: Colors.textSecondary,
     textDecorationLine: 'underline',
   },
 })

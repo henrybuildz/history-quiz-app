@@ -6,7 +6,6 @@ import {
   StyleSheet,
   FlatList,
   Animated,
-  SafeAreaView,
   StatusBar,
   ListRenderItemInfo,
   Alert,
@@ -14,13 +13,10 @@ import {
   NativeSyntheticEvent,
   NativeScrollEvent,
 } from 'react-native'
+import { SafeAreaView } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
 import { useAuth } from '../../context/AuthContext'
-
-const BG = '#0D0A05'
-const CARD_BG = '#1A1408'
-const GOLD = '#D4A843'
-const MUTED = '#8A7355'
+import { Colors, Fonts } from '../../constants/theme'
 
 type Slide = {
   emoji: string
@@ -239,14 +235,14 @@ export default function OnboardingScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: BG },
+  container: { flex: 1, backgroundColor: Colors.bg },
   listContainer: { flex: 1 },
   flatList: { flex: 1 },
   illustrationArea: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: CARD_BG,
+    backgroundColor: Colors.surface,
   },
   emoji: { fontSize: 100 },
   textArea: {
@@ -256,16 +252,16 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   slideTitle: {
-    fontFamily: 'Cinzel-Bold',
+    fontFamily: Fonts.displayBold,
     fontSize: 26,
-    color: GOLD,
+    color: Colors.gold,
     textAlign: 'center',
     letterSpacing: 1,
   },
   slideSubtitle: {
-    fontFamily: 'Cinzel-Regular',
+    fontFamily: Fonts.display,
     fontSize: 14,
-    color: MUTED,
+    color: Colors.textMuted,
     textAlign: 'center',
     lineHeight: 22,
   },
@@ -284,20 +280,20 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: GOLD,
+    backgroundColor: Colors.gold,
   },
   lastSlideButtons: { gap: 12 },
   primaryButton: {
-    backgroundColor: GOLD,
+    backgroundColor: Colors.gold,
     paddingVertical: 16,
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
   },
   primaryButtonText: {
-    fontFamily: 'Cinzel-Bold',
+    fontFamily: Fonts.displayBold,
     fontSize: 15,
-    color: BG,
+    color: Colors.bg,
     letterSpacing: 0.5,
   },
   guestButton: {
@@ -305,8 +301,8 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   guestButtonText: {
-    fontFamily: 'Cinzel-Regular',
+    fontFamily: Fonts.display,
     fontSize: 14,
-    color: MUTED,
+    color: Colors.textMuted,
   },
 })

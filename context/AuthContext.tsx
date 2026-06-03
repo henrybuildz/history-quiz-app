@@ -10,6 +10,8 @@ import { Alert } from 'react-native'
 import { Session, User } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
 
+declare const __DEV__: boolean
+
 type AuthState = {
   session: Session | null
   user: User | null
@@ -44,10 +46,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // ── Bootstrap: restore persisted session ──────────────────────────────────
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session)
-      setIsLoading(false)
-    })
+    supabase.auth.getSession()
+      .then(({ data: { session } }) => {
+        setSession(session)
+        setIsLoading(false)
+      })
+      .catch((err: unknown) => {
+        // Session load failed (e.g. SecureStore unavailable on device).
+        // session stays null — NavigationGuard will route to onboarding.
+        // Log in dev so this failure is never invisible during debugging.
+        if (__DEV__) console.error('[AuthContext] getSession failed:', err)
+        setIsLoading(false)
+      })
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (_event, session) => setSession(session)

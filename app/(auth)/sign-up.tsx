@@ -1,19 +1,13 @@
 import { useState } from 'react'
 import {
   View, Text, TextInput, TouchableOpacity,
-  StyleSheet, SafeAreaView, KeyboardAvoidingView,
+  StyleSheet, KeyboardAvoidingView,
   Platform, Alert, ScrollView
 } from 'react-native'
+import { SafeAreaView } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
 import { useAuth } from '../../context/AuthContext'
-
-const GOLD = '#D4A843'
-const BG = '#0D0A05'
-const CARD_BG = '#1A1408'
-const MUTED = '#8A7355'
-const BORDER = '#2A2010'
-const TEXT = '#E8D5B0'
-const GREEN = '#4A8C5C'
+import { Colors, Fonts } from '../../constants/theme'
 
 export default function SignUpScreen() {
   const [email, setEmail] = useState('')
@@ -109,7 +103,7 @@ export default function SignUpScreen() {
               <TextInput
                 style={styles.input}
                 placeholder="historian@example.com"
-                placeholderTextColor="#4A3D2A"
+                placeholderTextColor={Colors.textSecondary}
                 value={email}
                 onChangeText={setEmail}
                 autoCapitalize="none"
@@ -125,7 +119,7 @@ export default function SignUpScreen() {
               <TextInput
                 style={styles.input}
                 placeholder="Min. 6 characters"
-                placeholderTextColor="#4A3D2A"
+                placeholderTextColor={Colors.textSecondary}
                 value={password}
                 onChangeText={setPassword}
                 secureTextEntry
@@ -139,7 +133,7 @@ export default function SignUpScreen() {
               <TextInput
                 style={styles.input}
                 placeholder="••••••••"
-                placeholderTextColor="#4A3D2A"
+                placeholderTextColor={Colors.textSecondary}
                 value={confirm}
                 onChangeText={setConfirm}
                 secureTextEntry
@@ -173,7 +167,7 @@ export default function SignUpScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: BG },
+  container: { flex: 1, backgroundColor: Colors.bg },
   content: {
     flexGrow: 1,
     paddingHorizontal: 32,
@@ -182,41 +176,41 @@ const styles = StyleSheet.create({
     gap: 32,
   },
   backButton: { alignSelf: 'flex-start' },
-  backText: { fontFamily: 'Cinzel-Regular', fontSize: 14, color: MUTED },
+  backText: { fontFamily: Fonts.display, fontSize: 14, color: Colors.textMuted },
   headerSection: { gap: 10 },
   title: {
-    fontFamily: 'Cinzel-Bold',
+    fontFamily: Fonts.displayBold,
     fontSize: 26,
-    color: GOLD,
+    color: Colors.gold,
     letterSpacing: 0.5,
   },
   subtitle: {
-    fontFamily: 'Cinzel-Regular',
+    fontFamily: Fonts.display,
     fontSize: 13,
-    color: MUTED,
+    color: Colors.textMuted,
     lineHeight: 20,
   },
   form: { gap: 20 },
   fieldGroup: { gap: 8 },
   label: {
-    fontFamily: 'Cinzel-Bold',
+    fontFamily: Fonts.displayBold,
     fontSize: 10,
-    color: MUTED,
+    color: Colors.textMuted,
     letterSpacing: 2,
   },
   input: {
-    backgroundColor: CARD_BG,
+    backgroundColor: Colors.surface,
     borderWidth: 1,
-    borderColor: BORDER,
+    borderColor: Colors.border,
     borderRadius: 10,
     paddingHorizontal: 16,
     paddingVertical: 15,
-    color: TEXT,
-    fontFamily: 'Cinzel-Regular',
+    color: Colors.textPrimary,
+    fontFamily: Fonts.display,
     fontSize: 15,
   },
   submitButton: {
-    backgroundColor: GOLD,
+    backgroundColor: Colors.gold,
     paddingVertical: 17,
     borderRadius: 12,
     alignItems: 'center',
@@ -224,9 +218,9 @@ const styles = StyleSheet.create({
   },
   submitDisabled: { opacity: 0.55 },
   submitText: {
-    fontFamily: 'Cinzel-Bold',
+    fontFamily: Fonts.displayBold,
     fontSize: 15,
-    color: BG,
+    color: Colors.bg,
     letterSpacing: 1,
   },
   footer: {
@@ -234,8 +228,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     flexWrap: 'wrap',
   },
-  footerText: { fontFamily: 'Cinzel-Regular', fontSize: 13, color: MUTED },
-  footerLink: { fontFamily: 'Cinzel-Bold', fontSize: 13, color: GOLD },
+  footerText: { fontFamily: Fonts.display, fontSize: 13, color: Colors.textMuted },
+  footerLink: { fontFamily: Fonts.displayBold, fontSize: 13, color: Colors.gold },
   // Done state
   doneContent: {
     flex: 1,
@@ -246,31 +240,30 @@ const styles = StyleSheet.create({
   },
   doneIcon: { fontSize: 56 },
   doneTitle: {
-    fontFamily: 'Cinzel-Bold',
+    fontFamily: Fonts.displayBold,
     fontSize: 24,
-    color: GOLD,
+    color: Colors.gold,
     letterSpacing: 1,
   },
   doneSubtitle: {
-    fontFamily: 'Cinzel-Regular',
+    fontFamily: Fonts.display,
     fontSize: 14,
-    color: MUTED,
+    color: Colors.textMuted,
     textAlign: 'center',
     lineHeight: 22,
   },
-  doneEmail: { color: TEXT },
+  doneEmail: { color: Colors.textPrimary },
   doneButton: {
     marginTop: 8,
-    backgroundColor: GOLD,
+    backgroundColor: Colors.gold,
     paddingVertical: 16,
     paddingHorizontal: 40,
     borderRadius: 12,
   },
   doneButtonText: {
-    fontFamily: 'Cinzel-Bold',
+    fontFamily: Fonts.displayBold,
     fontSize: 15,
-    color: BG,
+    color: Colors.bg,
     letterSpacing: 1,
   },
 })
-

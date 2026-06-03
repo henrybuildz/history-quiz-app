@@ -5,22 +5,16 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  SafeAreaView,
   StatusBar,
   Alert,
   ActivityIndicator,
   KeyboardAvoidingView,
 } from 'react-native'
+import { SafeAreaView } from 'react-native-safe-area-context'
 import { useFocusEffect } from 'expo-router'
 import { useAuth } from '../../context/AuthContext'
 import { supabase } from '../../lib/supabase'
-
-const BG = '#0D0A05'
-const CARD_BG = '#1A1408'
-const GOLD = '#D4A843'
-const MUTED = '#8A7355'
-const BORDER = '#2A2010'
-const TEXT = '#E8D5B0'
+import { Colors, Fonts } from '../../constants/theme'
 
 const USERNAME_REGEX = /^[a-zA-Z0-9_]+$/
 
@@ -125,7 +119,7 @@ export default function UsernameScreen() {
               ref={inputRef}
               style={styles.input}
               placeholder="Enter username"
-              placeholderTextColor={MUTED}
+              placeholderTextColor={Colors.textMuted}
               value={username}
               onChangeText={handleChange}
               maxLength={20}
@@ -144,7 +138,7 @@ export default function UsernameScreen() {
             activeOpacity={0.8}
           >
             {loading ? (
-              <ActivityIndicator color={BG} />
+              <ActivityIndicator color={Colors.bg} />
             ) : (
               <Text style={styles.buttonText}>Confirm</Text>
             )}
@@ -156,7 +150,7 @@ export default function UsernameScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: BG },
+  container: { flex: 1, backgroundColor: Colors.bg },
   keyboardView: { flex: 1 },
   content: {
     flex: 1,
@@ -165,40 +159,40 @@ const styles = StyleSheet.create({
     gap: 24,
   },
   title: {
-    fontFamily: 'Cinzel-Bold',
+    fontFamily: Fonts.displayBold,
     fontSize: 28,
-    color: GOLD,
+    color: Colors.gold,
     textAlign: 'center',
     letterSpacing: 1,
   },
   subtitle: {
-    fontFamily: 'Cinzel-Regular',
+    fontFamily: Fonts.display,
     fontSize: 14,
-    color: MUTED,
+    color: Colors.textMuted,
     textAlign: 'center',
     lineHeight: 22,
     marginTop: -8,
   },
   inputWrapper: { gap: 8 },
   input: {
-    backgroundColor: CARD_BG,
+    backgroundColor: Colors.surface,
     borderWidth: 1,
-    borderColor: BORDER,
+    borderColor: Colors.border,
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 16,
-    fontFamily: 'Cinzel-Regular',
+    fontFamily: Fonts.display,
     fontSize: 15,
-    color: TEXT,
+    color: Colors.textPrimary,
   },
   errorText: {
-    fontFamily: 'Cinzel-Regular',
+    fontFamily: Fonts.display,
     fontSize: 12,
-    color: GOLD,
+    color: Colors.gold,
     paddingLeft: 4,
   },
   button: {
-    backgroundColor: GOLD,
+    backgroundColor: Colors.gold,
     paddingVertical: 16,
     borderRadius: 12,
     alignItems: 'center',
@@ -206,9 +200,9 @@ const styles = StyleSheet.create({
   },
   buttonDisabled: { opacity: 0.7 },
   buttonText: {
-    fontFamily: 'Cinzel-Bold',
+    fontFamily: Fonts.displayBold,
     fontSize: 15,
-    color: BG,
+    color: Colors.bg,
     letterSpacing: 0.5,
   },
 })

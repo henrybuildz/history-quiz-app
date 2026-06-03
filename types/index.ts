@@ -27,7 +27,8 @@ export type Era =
   | 'Modern Era'
   | '19th Century'
   | 'Science History'
-  | 'Religious History';
+  | 'Religious History'
+  | 'Mixed';
 
 export interface Question {
   id: string;

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   StyleSheet,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
+import { useFocusEffect } from 'expo-router'
 import { useAuth } from '../../context/AuthContext'
 import { getProfile, spendCoins } from '../../lib/supabase'
 import { Colors, Fonts, Spacing, Radius } from '../../constants/theme'
@@ -17,7 +18,6 @@ declare const __DEV__: boolean
 
 const MAX_LIVES = 12
 
-// Single source of truth for pricing — label and handler args derived from here.
 const HEART_ITEMS = {
   heart1: { cost: 25,  hearts: 1, name: '+1 Heart',  label: '❤️  +1 Heart',  costLabel: '25🪙'  },
   heart5: { cost: 100, hearts: 5, name: '+5 Hearts', label: '❤️  +5 Hearts', costLabel: '100🪙' },
@@ -26,8 +26,6 @@ const HEART_ITEMS = {
 type HeartItemKey = keyof typeof HEART_ITEMS
 type LoadingItem = HeartItemKey | null
 
-// Derived at module level so the render loop never diverges from HEART_ITEMS.
-// Object.keys preserves insertion order for string keys (ES2015+).
 const HEART_ITEM_KEYS = Object.keys(HEART_ITEMS) as HeartItemKey[]
 
 function extractMessage(err: unknown): string {
@@ -44,42 +42,45 @@ export default function ShopScreen() {
   const [coins, setCoins] = useState(0)
   const [lives, setLives] = useState(0)
   const [loadingItem, setLoadingItem] = useState<LoadingItem>(null)
-  // Synchronous guard against double-submit. React state (loadingItem) is not
-  // safe for this because setLoadingItem is asynchronous — a second tap can
-  // fire before the next render makes the button disabled.
   const purchaseInProgress = useRef(false)
 
-  useEffect(() => {
+  // Extract primitive so useCallback dep is a stable string, not an object.
+  // If user?.id is undefined (no session), the callback resets state to 0.
+  const userId = user?.id
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!userId) {
+        setCoins(0)
+        setLives(0)
+        return
+      }
+
+      let cancelled = false
+
+      getProfile(userId)
+        .then((profile) => {
+          if (cancelled) return
+          if (profile) {
+            setCoins(profile.coins)
+            setLives(profile.lives)
+          }
+        })
+        .catch((err: unknown) => {
+          if (__DEV__) console.error('[ShopScreen] getProfile failed:', err)
+          if (cancelled) return
+        })
+
+      return () => {
+        cancelled = true
+      }
+    }, [userId])
+  )
+
+  // Defined before early return so it's always in the same position
+  // in the component body regardless of render path.
+  const handleHeartPurchase = async (key: HeartItemKey) => {
     if (!user) return
-    let cancelled = false
-
-    getProfile(user.id)
-      .then((profile) => {
-        if (cancelled || !profile) return
-        setCoins(profile.coins)
-        setLives(profile.lives)
-      })
-      .catch((err) => {
-        if (cancelled) return
-        if (__DEV__) console.error('[ShopScreen] getProfile error:', err)
-      })
-
-    return () => {
-      cancelled = true
-    }
-  }, [user])
-
-  if (!user) {
-    return (
-      <SafeAreaView style={styles.container} edges={['top']}>
-        <View style={styles.centered}>
-          <Text style={styles.mutedText}>Sign in to access the shop</Text>
-        </View>
-      </SafeAreaView>
-    )
-  }
-
-  const handleHeartPurchase = async (key: keyof typeof HEART_ITEMS) => {
     if (purchaseInProgress.current) return
     purchaseInProgress.current = true
     const { cost, hearts, name } = HEART_ITEMS[key]
@@ -99,6 +100,16 @@ export default function ShopScreen() {
       purchaseInProgress.current = false
       setLoadingItem(null)
     }
+  }
+
+  if (!user) {
+    return (
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <View style={styles.centered}>
+          <Text style={styles.mutedText}>Sign in to access the shop</Text>
+        </View>
+      </SafeAreaView>
+    )
   }
 
   const heartsDisabled = lives >= MAX_LIVES
@@ -220,11 +231,9 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: Spacing.md,
     paddingTop: Spacing.md,
-    paddingBottom: 40,
+    paddingBottom: Spacing.xxl,
     gap: Spacing.md,
   },
-
-  // Header
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -250,8 +259,6 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: Colors.gold,
   },
-
-  // Cards
   card: {
     backgroundColor: Colors.surface,
     borderWidth: 1,
@@ -266,8 +273,6 @@ const styles = StyleSheet.create({
     color: Colors.textMuted,
     letterSpacing: 2,
   },
-
-  // Item rows (hearts, watch ad)
   itemRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -292,8 +297,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: Colors.gold,
   },
-
-  // Status text below heart buttons
   regenText: {
     fontFamily: Fonts.display,
     fontSize: 12,
@@ -306,8 +309,6 @@ const styles = StyleSheet.create({
     color: Colors.gold,
     textAlign: 'center',
   },
-
-  // Coin pack buttons
   packRow: {
     flexDirection: 'row',
     gap: 10,

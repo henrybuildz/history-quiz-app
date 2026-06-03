@@ -145,7 +145,7 @@ export default function ProfileScreen() {
     { label: 'Correct Answers', value: String(stats.correctAnswers) },
     { label: 'Accuracy',        value: `${stats.accuracy}%` },
     { label: 'Level',           value: String(profile?.level ?? 1) },
-    { label: 'Lives',           value: String(profile?.lives ?? 3), heartPrefix: true },
+    { label: 'Lives',           value: String(profile?.lives ?? 0), heartPrefix: true },
   ], [profile?.total_score, profile?.level, profile?.lives, stats.quizzesPlayed, stats.correctAnswers, stats.accuracy])
 
   const statRows = useMemo<StatItem[][]>(() => Array.from(

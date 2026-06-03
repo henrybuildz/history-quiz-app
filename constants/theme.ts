@@ -17,7 +17,6 @@ export const Colors = {
 export const Fonts = {
   display: 'Cinzel-Regular',
   displayBold: 'Cinzel-Bold',
-  body: undefined,
 } as const;
 
 export const Spacing = {
