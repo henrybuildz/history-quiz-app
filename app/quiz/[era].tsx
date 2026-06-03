@@ -21,7 +21,8 @@ import Animated, {
 } from 'react-native-reanimated';
 import { Colors, Fonts, Spacing, Radius } from '../../constants/theme';
 import { useQuizStore } from '../../stores/quizStore';
-import { supabase } from '../../lib/supabase';
+import { supabase, saveQuizResult } from '../../lib/supabase';
+import { useAuth } from '../../context/AuthContext';
 import { AnimatedSlot } from '../../components/AnimatedSlot';
 import type { Question, Era } from '../../types';
 
@@ -301,6 +302,8 @@ export default function QuizScreen() {
     correctCount,
   } = useQuizStore();
 
+  const { user, isAnonymous } = useAuth();
+
   const [loading,     setLoading]     = useState(true);
   const [fetchError,  setFetchError]  = useState<string | null>(null);
   const [showResults, setShowResults] = useState(false);
@@ -308,6 +311,9 @@ export default function QuizScreen() {
 
   const scrollRef      = useRef<ScrollView>(null);
   const nextPressedRef = useRef(false);
+  // Prevents double-saves in the 800ms window between a wrong-answer highlight
+  // and the auto-show-results timer firing while handleNext also runs.
+  const hasSavedRef    = useRef(false);
 
   const currentQuestion: Question | null = questions[currentIndex] ?? null;
 
@@ -328,6 +334,7 @@ export default function QuizScreen() {
   // ── Data fetching ───────────────────────────────────────────────────────────
 
   const fetchAndStart = useCallback(async () => {
+    hasSavedRef.current = false;
     setLoading(true);
     setFetchError(null);
     setShowResults(false);
@@ -371,17 +378,60 @@ export default function QuizScreen() {
     router.back();
   }, [resetQuiz]);
 
+  // Single save path shared by all three completion triggers (game-over effect,
+  // isQuizOver branch, questions-exhausted branch).
+  //
+  // hasSavedRef prevents double-writes: if the user taps Next in the 800ms
+  // window before the game-over timer fires, the first caller wins and the
+  // second is a no-op.
+  //
+  // useQuizStore.getState() is required for score/currentIndex/correctCount
+  // because handleNext's useCallback deps are stable Zustand methods (never
+  // change reference), so those values are always stale in handleNext's closure.
+  const persistResult = useCallback(() => {
+    // isAnonymous and !user are first-line guards to skip the network call entirely.
+    // saveQuizResult validates its own inputs — !era here is a redundant fast-path
+    // to avoid a round-trip we know will be rejected.
+    if (hasSavedRef.current || !era || isAnonymous || !user) return;
+    hasSavedRef.current = true;
+    // Capture all values up-front so the error log is provably identical to
+    // what was passed to saveQuizResult — no risk of log diverging from actual call.
+    const { score: s, currentIndex: idx, correctCount: cc } = useQuizStore.getState();
+    const questionsAnswered = idx + 1;
+    const questionsCorrect  = cc;
+    saveQuizResult({
+      userId: user.id,
+      era,
+      score: s,
+      questionsAnswered,
+      questionsCorrect,
+    }).catch((err: unknown) => {
+      // Two failure modes:
+      //   sessionError  → no row written, score fully lost.
+      //   profileError  → session row exists but profile score not updated (non-atomic).
+      // hasSavedRef is already true so no retry will fire. Retry requires
+      // idempotent DB writes (unique constraint + ON CONFLICT) before it is safe.
+      console.error('[QuizScreen] failed to save quiz result:', err, {
+        era,
+        score: s,
+        questionsAnswered,
+        questionsCorrect,
+      });
+    });
+  }, [era, isAnonymous, user]);
+
   // Auto-show results when the player loses their last life.
   // The 800ms delay lets the red answer highlight remain visible before the modal
   // appears — same rationale as the old auto-navigate delay.
   useEffect(() => {
     if (lives > 0 || answerState === 'idle' || questions.length === 0) return;
     const t = setTimeout(() => {
+      persistResult();
       setIsGameOver(true);
       setShowResults(true);
     }, 800);
     return () => clearTimeout(t);
-  }, [lives, answerState, questions.length]);
+  }, [lives, answerState, questions.length, persistResult]);
 
   const handleNext = useCallback(() => {
     if (nextPressedRef.current) return;
@@ -400,6 +450,7 @@ export default function QuizScreen() {
       nextPressedRef.current = false;
       // Read fresh state to avoid stale closure on `lives`
       setIsGameOver(useQuizStore.getState().lives <= 0);
+      persistResult();
       setShowResults(true);
       return;
     }
@@ -410,10 +461,11 @@ export default function QuizScreen() {
       // nextQuestion returned false with lives > 0 (isQuizOver was false above),
       // meaning currentIndex + 1 >= questions.length — all questions exhausted.
       setIsGameOver(false);
+      persistResult();
       setShowResults(true);
     }
     // advanced === true: leave ref=true; useEffect([currentIndex]) will clear it
-  }, [isQuizOver, nextQuestion]);
+  }, [isQuizOver, nextQuestion, persistResult]);
 
   const handlePlayAgain = useCallback(() => {
     // resetQuiz() is load-bearing here: it changes lives/answerState/questions.length,

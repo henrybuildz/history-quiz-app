@@ -18,10 +18,8 @@ export default function SignInScreen() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
-  const { signInWithEmail, linkEmail, isAnonymous } = useAuth()
+  const { signInWithEmail } = useAuth()
   const router = useRouter()
-
-  const isUpgrade = isAnonymous
 
   const handleSubmit = async () => {
     const trimmedEmail = email.trim()
@@ -29,25 +27,25 @@ export default function SignInScreen() {
       Alert.alert('Missing Fields', 'Please enter your email and password.')
       return
     }
+    // indexOf/lastIndexOf: exactly one '@', with non-empty local and domain parts.
+    // split('@') destructuring silently discards extra segments, so 'a@b@c'
+    // would pass a simple [localPart, domain] check — hence the explicit check here.
+    const atIdx = trimmedEmail.indexOf('@')
+    const validEmail =
+      atIdx > 0 &&
+      atIdx === trimmedEmail.lastIndexOf('@') &&
+      atIdx < trimmedEmail.length - 1
+    if (!validEmail) {
+      Alert.alert('Invalid Email', 'Please enter a valid email address.')
+      return
+    }
 
     setLoading(true)
     try {
-      if (isUpgrade) {
-        await linkEmail(trimmedEmail, password)
-        // Session updates via onAuthStateChange → NavigationGuard redirects
-      } else {
-        await signInWithEmail(trimmedEmail, password)
-      }
-    } catch (err: any) {
-      if (err?.code === 'email_exists') {
-        Alert.alert(
-          'Account Exists',
-          'That email already has an account. Sign in instead to link it.',
-          [{ text: 'OK' }]
-        )
-      } else {
-        Alert.alert('Sign In Failed', err.message ?? 'Something went wrong.')
-      }
+      await signInWithEmail(trimmedEmail, password)
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Something went wrong.'
+      Alert.alert('Sign In Failed', message)
     } finally {
       setLoading(false)
     }
@@ -72,14 +70,8 @@ export default function SignInScreen() {
           </TouchableOpacity>
 
           <View style={styles.headerSection}>
-            <Text style={styles.title}>
-              {isUpgrade ? 'Save Your Progress' : 'Welcome Back'}
-            </Text>
-            <Text style={styles.subtitle}>
-              {isUpgrade
-                ? 'Link an email to your guest account and keep your score.'
-                : 'Sign in to your History Quiz account.'}
-            </Text>
+            <Text style={styles.title}>Welcome Back</Text>
+            <Text style={styles.subtitle}>Sign in to your History Quiz account.</Text>
           </View>
 
           <View style={styles.form}>
@@ -120,11 +112,7 @@ export default function SignInScreen() {
               activeOpacity={0.85}
             >
               <Text style={styles.submitText}>
-                {loading
-                  ? 'Signing in…'
-                  : isUpgrade
-                  ? 'Save & Continue'
-                  : 'Sign In'}
+                {loading ? 'Signing in…' : 'Sign In'}
               </Text>
             </TouchableOpacity>
           </View>

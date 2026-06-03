@@ -1,4 +1,4 @@
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useCallback, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -6,24 +6,22 @@ import {
   StyleSheet,
   TouchableOpacity,
   Platform,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useRouter } from 'expo-router';
 import { Colors, Fonts, Spacing, Radius } from '../../constants/theme';
 import { useAuth } from '../../context/AuthContext';
+import { getProfile, ProfileRow } from '../../lib/supabase';
 
 // ---------------------------------------------------------------------------
 // Data
 // ---------------------------------------------------------------------------
 
+// Only fields not yet sourced from the profiles table remain here.
 const MOCK_PROFILE = {
-  username: 'Historian',
-  total_score: 0,
-  level: 1,
-  xp: 0,
   xpToNextLevel: 500,
-  lives: 3,
   quizzesPlayed: 0,
   correctAnswers: 0,
   accuracy: 0,
@@ -48,24 +46,6 @@ function computeXpPercent(xp: number, xpMax: number): `${number}%` {
   const pct = Math.min(100, Math.max(0, (xp / xpMax) * 100));
   return `${pct}%` as `${number}%`;
 }
-
-const XP_PERCENT = computeXpPercent(MOCK_PROFILE.xp, MOCK_PROFILE.xpToNextLevel);
-
-const INITIALS = MOCK_PROFILE.username.trim().charAt(0).toUpperCase() || '?';
-
-const STAT_ITEMS: StatItem[] = [
-  { label: 'Total Score',     value: String(MOCK_PROFILE.total_score) },
-  { label: 'Quizzes Played',  value: String(MOCK_PROFILE.quizzesPlayed) },
-  { label: 'Correct Answers', value: String(MOCK_PROFILE.correctAnswers) },
-  { label: 'Accuracy',        value: `${MOCK_PROFILE.accuracy}%` },
-  { label: 'Level',           value: String(MOCK_PROFILE.level) },
-  { label: 'Lives',           value: String(MOCK_PROFILE.lives), heartPrefix: true },
-];
-
-const STAT_ROWS: StatItem[][] = Array.from(
-  { length: Math.ceil(STAT_ITEMS.length / 2) },
-  (_, i) => STAT_ITEMS.slice(i * 2, i * 2 + 2),
-);
 
 const ANIM_AVATAR       = FadeInDown.duration(400);
 const ANIM_STATS        = FadeInDown.duration(400).delay(150);
@@ -99,8 +79,86 @@ function StatCard({ item }: { item: StatItem }) {
 
 export default function ProfileScreen() {
   const router = useRouter();
-  const { user, isAnonymous } = useAuth();
-  const displayName = isAnonymous ? 'Guest Scholar' : (user?.email?.split('@')[0] ?? 'Historian');
+  const { user, isAnonymous, signOut } = useAuth();
+
+  const [profile, setProfile] = useState<ProfileRow | null>(null)
+  // Lazy initializer: start in loading state for real users so frame-zero
+  // shows dimmed defaults rather than a flash of unloaded data.
+  // NavigationGuard ensures auth state is resolved before (tabs) renders.
+  const [profileLoading, setProfileLoading] = useState(() => !isAnonymous && !!user)
+
+  useEffect(() => {
+    if (!user || isAnonymous) {
+      setProfile(null)
+      setProfileLoading(false)  // reset — cleanup blocks finally when signing out mid-fetch
+      return
+    }
+    let cancelled = false
+    setProfileLoading(true)
+    getProfile(user.id)
+      .then((data) => { if (!cancelled) setProfile(data) })
+      .catch((err) => { if (!cancelled) console.error('Failed to fetch profile:', err) })
+      .finally(() => { if (!cancelled) setProfileLoading(false) })
+    return () => { cancelled = true }
+  }, [user?.id, isAnonymous])
+
+  // Depend on user?.email, not user — the User object reference changes on every
+  // session refresh (token rotation) even when the email is unchanged.
+  // Profile username takes priority when available.
+  const displayName = useMemo(() => {
+    if (isAnonymous) return 'Guest Scholar'
+    if (profile?.username) return profile.username
+    return user?.email?.split('@')[0] ?? 'Historian'
+  }, [isAnonymous, profile?.username, user?.email]);
+
+  const initials = useMemo(
+    () => displayName.trim().charAt(0).toUpperCase() || '?',
+    [displayName],
+  );
+
+  const xpPercent = useMemo(
+    () => computeXpPercent(profile?.xp ?? 0, MOCK_PROFILE.xpToNextLevel),
+    [profile?.xp],
+  );
+
+  const statItems = useMemo<StatItem[]>(() => [
+    { label: 'Total Score',     value: String(profile?.total_score ?? 0) },
+    { label: 'Quizzes Played',  value: String(MOCK_PROFILE.quizzesPlayed) },
+    { label: 'Correct Answers', value: String(MOCK_PROFILE.correctAnswers) },
+    { label: 'Accuracy',        value: `${MOCK_PROFILE.accuracy}%` },
+    { label: 'Level',           value: String(profile?.level ?? 1) },
+    { label: 'Lives',           value: String(profile?.lives ?? 3), heartPrefix: true },
+  ], [profile?.total_score, profile?.level, profile?.lives])
+
+  const statRows = useMemo<StatItem[][]>(() => Array.from(
+    { length: Math.ceil(statItems.length / 2) },
+    (_, i) => statItems.slice(i * 2, i * 2 + 2),
+  ), [statItems])
+
+  const [signingOut, setSigningOut] = useState(false);
+  // Ref guards against double-fire without needing to be a useCallback dep.
+  // useState(signingOut) is kept separately for UI-only updates (disabled, text).
+  const signingOutRef = useRef(false);
+  const handleLogOut = useCallback(async () => {
+    if (signingOutRef.current) return
+    signingOutRef.current = true
+    setSigningOut(true)
+    try {
+      await signOut()
+    } catch {
+      Alert.alert('Error', 'Could not sign out. Please try again.')
+    } finally {
+      signingOutRef.current = false
+      setSigningOut(false)
+    }
+  }, [signOut])
+
+  const handleSignIn = useCallback(() => {
+    router.push('/(auth)/welcome')
+  }, [router])
+
+  // Single StyleSheet-backed reference reused across all loading-dimmed sections.
+  const loadingStyle = profileLoading ? styles.loading : undefined
 
   const hasMounted = useRef(false);
   useEffect(() => {
@@ -114,50 +172,55 @@ export default function ProfileScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Sign-in banner */}
-        <View style={styles.banner}>
-          <Text style={styles.bannerText}>Sign in to save your progress</Text>
-          <TouchableOpacity
-            style={styles.signInButton}
-            onPress={() => router.push('/(auth)/welcome')}
-            activeOpacity={0.8}
-            accessibilityRole="button"
-            accessibilityLabel="Sign in to save your progress"
-          >
-            <Text style={styles.signInButtonText}>Sign In</Text>
-          </TouchableOpacity>
-        </View>
+        {/* Sign-in banner — only shown to anonymous users */}
+        {isAnonymous && (
+          <View style={styles.banner}>
+            <Text style={styles.bannerText}>Sign in to save your progress</Text>
+            <TouchableOpacity
+              style={styles.signInButton}
+              onPress={handleSignIn}
+              activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityLabel="Sign in to save your progress"
+            >
+              <Text style={styles.signInButtonText}>Sign In</Text>
+            </TouchableOpacity>
+          </View>
+        )}
 
         {/* Avatar + username */}
         <Animated.View
-          style={styles.avatarSection}
+          style={[styles.avatarSection, loadingStyle]}
           entering={hasMounted.current ? undefined : ANIM_AVATAR}
         >
           <View style={styles.avatarCircle}>
-            <Text style={styles.avatarInitials}>{INITIALS}</Text>
+            <Text style={styles.avatarInitials}>{initials}</Text>
           </View>
           <Text style={styles.username}>{displayName}</Text>
-          <Text style={styles.levelLabel}>{`Level ${MOCK_PROFILE.level}`}</Text>
+          <Text style={styles.levelLabel}>{`Level ${profile?.level ?? 1}`}</Text>
         </Animated.View>
 
         {/* XP progress bar */}
-        <View style={styles.xpContainer}>
+        <View style={[styles.xpContainer, loadingStyle]}>
           <View style={styles.xpLabelRow}>
             <Text style={styles.xpLabel}>XP</Text>
             <Text style={styles.xpLabel}>
-              {`${MOCK_PROFILE.xp} / ${MOCK_PROFILE.xpToNextLevel}`}
+              {`${profile?.xp ?? 0} / ${MOCK_PROFILE.xpToNextLevel}`}
             </Text>
           </View>
           <View style={styles.progressTrack}>
-            <View style={[styles.progressFill, { width: XP_PERCENT }]} />
+            <View style={[styles.progressFill, { width: xpPercent }]} />
           </View>
         </View>
 
         {/* Stats grid */}
-        <Animated.View entering={hasMounted.current ? undefined : ANIM_STATS}>
+        <Animated.View
+          entering={hasMounted.current ? undefined : ANIM_STATS}
+          style={loadingStyle}
+        >
           <Text style={styles.sectionTitle}>Statistics</Text>
           <View style={styles.statsGrid}>
-            {STAT_ROWS.map((row) => (
+            {statRows.map((row) => (
               <View key={row[0]!.label} style={styles.statsRow}>
                 {row.map((item) => (
                   <StatCard key={item.label} item={item} />
@@ -200,6 +263,19 @@ export default function ProfileScreen() {
             <Text style={styles.actionLabel}>Rate the App</Text>
             <Text style={styles.actionChevron}>{'›'}</Text>
           </TouchableOpacity>
+          {!isAnonymous && (
+            <TouchableOpacity
+              style={[styles.actionRow, signingOut && { opacity: 0.5 }]}
+              onPress={handleLogOut}
+              disabled={signingOut}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel="Log Out"
+            >
+              <Text style={styles.actionLabel}>{signingOut ? 'Signing out…' : 'Log Out'}</Text>
+              <Text style={styles.actionChevron}>{'›'}</Text>
+            </TouchableOpacity>
+          )}
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -377,5 +453,8 @@ const styles = StyleSheet.create({
   actionChevron: {
     fontSize: 20,
     color: Colors.textMuted,
+  },
+  loading: {
+    opacity: 0.4,
   },
 });
