@@ -37,11 +37,11 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="leaderboard"
+        name="shop"
         options={{
-          title: 'RANKS',
+          title: 'SHOP',
           tabBarIcon: ({ color, focused }) => (
-            <Text style={{ fontSize: 18, color, opacity: focused ? 1 : 0.5 }}>♛</Text>
+            <Text style={{ fontSize: 18, color, opacity: focused ? 1 : 0.5 }}>🪙</Text>
           ),
         }}
       />

@@ -13,18 +13,15 @@ import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useRouter } from 'expo-router';
 import { Colors, Fonts, Spacing, Radius } from '../../constants/theme';
 import { useAuth } from '../../context/AuthContext';
-import { getProfile, ProfileRow } from '../../lib/supabase';
+import { getProfile, ProfileRow, getProfileStats, ProfileStats } from '../../lib/supabase';
 
 // ---------------------------------------------------------------------------
 // Data
 // ---------------------------------------------------------------------------
 
-// Only fields not yet sourced from the profiles table remain here.
+// xpToNextLevel is the only value not yet sourced from the DB.
 const MOCK_PROFILE = {
   xpToNextLevel: 500,
-  quizzesPlayed: 0,
-  correctAnswers: 0,
-  accuracy: 0,
 } as const;
 
 // ---------------------------------------------------------------------------
@@ -86,11 +83,15 @@ export default function ProfileScreen() {
   // shows dimmed defaults rather than a flash of unloaded data.
   // NavigationGuard ensures auth state is resolved before (tabs) renders.
   const [profileLoading, setProfileLoading] = useState(() => !isAnonymous && !!user)
+  const [statsLoading,   setStatsLoading]   = useState(() => !isAnonymous && !!user)
+  const [stats, setStats] = useState<ProfileStats>({ quizzesPlayed: 0, correctAnswers: 0, accuracy: 0 })
 
   useEffect(() => {
     if (!user || isAnonymous) {
       setProfile(null)
+      setStats({ quizzesPlayed: 0, correctAnswers: 0, accuracy: 0 })
       setProfileLoading(false)  // reset — cleanup blocks finally when signing out mid-fetch
+      setStatsLoading(false)
       return
     }
     let cancelled = false
@@ -99,6 +100,23 @@ export default function ProfileScreen() {
       .then((data) => { if (!cancelled) setProfile(data) })
       .catch((err) => { if (!cancelled) console.error('Failed to fetch profile:', err) })
       .finally(() => { if (!cancelled) setProfileLoading(false) })
+    return () => { cancelled = true }
+  }, [user?.id, isAnonymous])
+
+  useEffect(() => {
+    // Anonymous users never have saved sessions — skip the fetch entirely.
+    if (!user?.id || isAnonymous) {
+      setStatsLoading(false)
+      return
+    }
+    let cancelled = false
+    setStatsLoading(true)
+    getProfileStats(user.id)
+      .then((data) => { if (!cancelled) setStats(data) })
+      // getProfileStats never throws — it returns zeros on all Supabase errors.
+      // This .catch() is a safety net for truly unexpected JS exceptions only.
+      .catch((err) => { if (!cancelled) console.error('Failed to fetch profile stats:', err) })
+      .finally(() => { if (!cancelled) setStatsLoading(false) })
     return () => { cancelled = true }
   }, [user?.id, isAnonymous])
 
@@ -123,12 +141,12 @@ export default function ProfileScreen() {
 
   const statItems = useMemo<StatItem[]>(() => [
     { label: 'Total Score',     value: String(profile?.total_score ?? 0) },
-    { label: 'Quizzes Played',  value: String(MOCK_PROFILE.quizzesPlayed) },
-    { label: 'Correct Answers', value: String(MOCK_PROFILE.correctAnswers) },
-    { label: 'Accuracy',        value: `${MOCK_PROFILE.accuracy}%` },
+    { label: 'Quizzes Played',  value: String(stats.quizzesPlayed) },
+    { label: 'Correct Answers', value: String(stats.correctAnswers) },
+    { label: 'Accuracy',        value: `${stats.accuracy}%` },
     { label: 'Level',           value: String(profile?.level ?? 1) },
     { label: 'Lives',           value: String(profile?.lives ?? 3), heartPrefix: true },
-  ], [profile?.total_score, profile?.level, profile?.lives])
+  ], [profile?.total_score, profile?.level, profile?.lives, stats.quizzesPlayed, stats.correctAnswers, stats.accuracy])
 
   const statRows = useMemo<StatItem[][]>(() => Array.from(
     { length: Math.ceil(statItems.length / 2) },
@@ -213,10 +231,11 @@ export default function ProfileScreen() {
           </View>
         </View>
 
-        {/* Stats grid */}
+        {/* Stats grid — dimmed until BOTH profile and stats have loaded, so
+             Total Score / Level never undim while Quizzes / Accuracy still show 0. */}
         <Animated.View
           entering={hasMounted.current ? undefined : ANIM_STATS}
-          style={loadingStyle}
+          style={(profileLoading || statsLoading) ? styles.loading : undefined}
         >
           <Text style={styles.sectionTitle}>Statistics</Text>
           <View style={styles.statsGrid}>

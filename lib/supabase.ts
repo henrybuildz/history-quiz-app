@@ -48,12 +48,13 @@ export type ProfileRow = {
   level: number
   xp: number
   lives: number
+  coins: number
 }
 
 export async function getProfile(userId: string): Promise<ProfileRow | null> {
   const { data, error } = await supabase
     .from('profiles')
-    .select('username, total_score, level, xp, lives')
+    .select('username, total_score, level, xp, lives, coins')
     .eq('id', userId)
     .single()
   if (error) {
@@ -62,17 +63,78 @@ export async function getProfile(userId: string): Promise<ProfileRow | null> {
     throw error
   }
   if (!data) return null
-  // Defensive field validation — guards against schema drift and unexpected types,
-  // consistent with the pattern used in getLeaderboard.
   const d = data as Record<string, unknown>
   return {
-    username: typeof d.username === 'string' ? d.username : null,
+    username:    typeof d.username    === 'string' ? d.username    : null,
     total_score: typeof d.total_score === 'number' ? d.total_score : 0,
-    level: typeof d.level === 'number' ? d.level : 1,
-    xp: typeof d.xp === 'number' ? d.xp : 0,
-    lives: typeof d.lives === 'number' ? d.lives : 3,
+    level:       typeof d.level       === 'number' ? d.level       : 1,
+    xp:          typeof d.xp          === 'number' ? d.xp          : 0,
+    // Default to 0, not 3 — 3 was the old starting value before the schema
+    // was updated to 12. A corrupt lives value should surface as 0 (visibly
+    // wrong) rather than 3 (silently plausible).
+    lives:       typeof d.lives       === 'number' ? d.lives       : 0,
+    coins:       typeof d.coins       === 'number' ? d.coins       : 0,
   }
 }
+
+// ── Spend Coins ────────────────────────────────────────────────────────────────
+
+export type SpendCoinsResult = {
+  coins: number
+  lives: number
+}
+
+export async function spendCoins(
+  userId: string,
+  amount: number,     // renamed from 'cost' — matches p_amount in the RPC call
+  heartsToAdd: number,
+  itemName: string,
+): Promise<SpendCoinsResult> {
+  if (!userId)
+    throw new Error('spendCoins: userId is required')
+  if (!Number.isInteger(amount) || amount <= 0)
+    throw new Error(`spendCoins: amount must be a positive integer, got ${amount}`)
+  // Mirror the SQL guard exactly — p_hearts must be between 1 and 12.
+  if (!Number.isInteger(heartsToAdd) || heartsToAdd <= 0 || heartsToAdd > 12)
+    throw new Error(`spendCoins: heartsToAdd must be between 1 and 12, got ${heartsToAdd}`)
+  if (!itemName.trim())
+    throw new Error('spendCoins: itemName must not be empty')
+
+  const { data, error } = await supabase.rpc('spend_coins', {
+    p_user_id: userId,
+    p_amount:  amount,
+    p_hearts:  heartsToAdd,
+    p_item:    itemName,
+  })
+  if (error) throw error
+
+  // spend_coins uses OUT parameters, which PostgREST returns as a single
+  // plain object — not an array.
+  if (
+    data === null      ||
+    data === undefined ||
+    typeof data !== 'object' ||
+    Array.isArray(data)
+  ) {
+    throw new Error(
+      `spendCoins: unexpected RPC response shape — got ${JSON.stringify(data)}`
+    )
+  }
+
+  const d = data as Record<string, unknown>
+
+  if (typeof d.out_coins !== 'number' || typeof d.out_lives !== 'number') {
+    throw new Error(
+      `spendCoins: RPC response missing out_coins or out_lives — got ${JSON.stringify(d)}`
+    )
+  }
+
+  const coins: number = d.out_coins
+  const lives: number = d.out_lives
+  return { coins, lives }
+}
+
+// ── Leaderboard ────────────────────────────────────────────────────────────────
 
 export async function getLeaderboard(): Promise<LeaderboardEntry[]> {
   const { data, error } = await supabase.rpc('get_leaderboard')
@@ -88,6 +150,8 @@ export async function getLeaderboard(): Promise<LeaderboardEntry[]> {
   })
 }
 
+// ── Save Quiz Result ───────────────────────────────────────────────────────────
+
 export async function saveQuizResult({
   userId,
   era,
@@ -101,8 +165,6 @@ export async function saveQuizResult({
   questionsAnswered: number
   questionsCorrect: number
 }) {
-  // Runtime validation — TypeScript types are compile-time only. Garbage inputs
-  // here produce orphaned DB rows or silent constraint violations.
   if (!userId) throw new Error('saveQuizResult: userId is required')
   if (!era) throw new Error('saveQuizResult: era is required')
   if (!Number.isFinite(score) || score < 0)
@@ -112,18 +174,8 @@ export async function saveQuizResult({
   if (!Number.isInteger(questionsCorrect) || questionsCorrect < 0 || questionsCorrect > questionsAnswered)
     throw new Error(`saveQuizResult: questionsCorrect ${questionsCorrect} out of range [0, ${questionsAnswered}]`)
 
-  // Math.trunc ensures no float ever reaches the DB even if score arithmetic drifts.
   const safeScore = Math.trunc(score)
 
-  // NOT idempotent: calling this function twice for the same session inserts two
-  // rows and fires increment_user_score twice, doubling the leaderboard score.
-  // Any retry logic MUST be gated behind a unique constraint + ON CONFLICT at the
-  // DB level before it is safe to call this more than once per quiz completion.
-  //
-  // NOTE: two separate round-trips — not atomic. If the RPC fails after the insert
-  // the session row exists without a profile score update. The correct fix is a
-  // single Postgres function that does both in one transaction (see increment_user_score
-  // migration TODO). Do not reorder these two calls.
   const { error: sessionError } = await supabase
     .from('quiz_sessions')
     .insert({
@@ -133,8 +185,6 @@ export async function saveQuizResult({
       questions_answered: questionsAnswered,
       questions_correct: questionsCorrect,
       completed: true,
-      // completed_at intentionally omitted — column DEFAULT now() is authoritative;
-      // client-side timestamps are subject to device clock drift.
     })
   if (sessionError) throw sessionError
 
@@ -143,4 +193,45 @@ export async function saveQuizResult({
     p_score: safeScore,
   })
   if (profileError) throw profileError
+}
+
+// ── Profile Stats ──────────────────────────────────────────────────────────────
+
+export interface ProfileStats {
+  quizzesPlayed: number
+  correctAnswers: number
+  accuracy: number
+}
+
+export async function getProfileStats(userId: string): Promise<ProfileStats> {
+  const zeros: ProfileStats = { quizzesPlayed: 0, correctAnswers: 0, accuracy: 0 }
+  if (!userId) return zeros
+
+  const { data, error } = await supabase
+    .from('quiz_sessions')
+    .select('questions_correct, questions_answered')
+    .eq('user_id', userId)
+    .eq('completed', true)
+
+  if (error) {
+    console.error('getProfileStats error:', error)
+    return zeros
+  }
+  if (!Array.isArray(data) || data.length === 0) return zeros
+
+  let totalAnswered = 0
+  let correctAnswers = 0
+  for (const row of data) {
+    const r = row as Record<string, unknown>
+    correctAnswers += typeof r.questions_correct  === 'number' ? r.questions_correct  : 0
+    totalAnswered  += typeof r.questions_answered === 'number' ? r.questions_answered : 0
+  }
+
+  const safeCorrect  = Math.max(0, correctAnswers)
+  const safeAnswered = Math.max(0, totalAnswered)
+  const accuracy = safeAnswered > 0
+    ? Math.min(100, Math.max(0, Math.round((safeCorrect / safeAnswered) * 100)))
+    : 0
+
+  return { quizzesPlayed: data.length, correctAnswers: safeCorrect, accuracy }
 }

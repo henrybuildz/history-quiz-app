@@ -15,6 +15,7 @@ type AuthState = {
   user: User | null
   isAnonymous: boolean
   isLoading: boolean
+  usernameVersion: number
 }
 
 type AuthActions = {
@@ -25,6 +26,7 @@ type AuthActions = {
   signUpWithEmail: (email: string, password: string) => Promise<{ needsVerification: boolean }>
   linkEmail: (email: string, password: string) => Promise<void>
   signOut: () => Promise<void>
+  triggerUsernameRefresh: () => void
 }
 
 type AuthContextType = AuthState & AuthActions
@@ -34,6 +36,11 @@ const AuthContext = createContext<AuthContextType | null>(null)
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [usernameVersion, setUsernameVersion] = useState(0)
+
+  // Monotonically incrementing — NavigationGuard compares against a ref to
+  // detect new saves without needing a separate reset signal.
+  const triggerUsernameRefresh = useCallback(() => setUsernameVersion(v => v + 1), [])
 
   // ── Bootstrap: restore persisted session ──────────────────────────────────
   useEffect(() => {
@@ -105,6 +112,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         user: session?.user ?? null,
         isAnonymous,
         isLoading,
+        usernameVersion,
         signInAnonymously,
         signInWithGoogle,
         linkGoogle,
@@ -112,6 +120,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         signUpWithEmail,
         linkEmail,
         signOut,
+        triggerUsernameRefresh,
       }}
     >
       {children}
