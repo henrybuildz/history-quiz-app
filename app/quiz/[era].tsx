@@ -1,6 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Modal,
   ScrollView,
   StyleSheet,
@@ -21,7 +22,10 @@ import Animated, {
 } from 'react-native-reanimated';
 import { Colors, Fonts, Spacing, Radius } from '../../constants/theme';
 import { useQuizStore } from '../../stores/quizStore';
-import { supabase, saveQuizResult } from '../../lib/supabase';
+import { profileSignalStore } from '../../stores/profileSignal';
+import { useAchievementStore } from '../../stores/achievementStore';
+import { supabase, saveQuizResult, deductLife, regenLives, regenLivesLocal, deductLifeLocal, REGEN_HOURS, LIVES_PER_QUIZ } from '../../lib/supabase';
+import { withTimeout } from '../../lib/withTimeout';
 import { useAuth } from '../../context/AuthContext';
 import { AnimatedSlot } from '../../components/AnimatedSlot';
 import type { Question, Era } from '../../types';
@@ -33,8 +37,14 @@ type SlotState = 'idle' | 'correct' | 'wrong' | 'dim';
 
 const BACK_HIT_SLOP = { top: 12, bottom: 12, left: 12, right: 12 } as const;
 
-// Explicit column list avoids over-fetching and shields against future schema additions
-const QUESTION_COLUMNS = 'id, question_text, correct_answer, distractors, era, difficulty';
+// Max ms to wait for an in-flight save before navigating home anyway.
+// Prevents a network drop from freezing the UI on the results modal.
+const HOME_SAVE_TIMEOUT_MS = 5_000
+
+// Explicit column list avoids over-fetching and shields against future schema additions.
+// explanation and topic are included so Question.explanation / Question.topic match their
+// declared types (string | null) rather than silently being undefined at runtime.
+const QUESTION_COLUMNS = 'id, question_text, correct_answer, distractors, era, difficulty, explanation, topic';
 
 function fisherYates<T>(arr: readonly T[]): T[] {
   const a = [...arr];
@@ -83,13 +93,22 @@ const Heart = memo(function Heart({ alive, animate }: { alive: boolean; animate:
   );
 });
 
-const HeartsRow = memo(function HeartsRow({ lives }: { lives: number }) {
+// Show individual heart icons when count is small enough to fit; fall back to
+// a compact "❤️ N" badge for larger counts so the HUD doesn't overflow.
+const MAX_ICON_DISPLAY = 5;
+
+const HeartsRow = memo(function HeartsRow({
+  lives,
+  maxLives,
+}: {
+  lives: number;
+  maxLives: number;
+}) {
   const prevLives = useRef(lives);
   const [dyingIdx, setDyingIdx] = useState<number | null>(null);
 
   useEffect(() => {
     if (lives < prevLives.current) {
-      // After decrement, `lives` equals the 0-based index of the newly-dead heart
       setDyingIdx(lives);
       const t = setTimeout(() => setDyingIdx(null), 450);
       prevLives.current = lives;
@@ -98,17 +117,25 @@ const HeartsRow = memo(function HeartsRow({ lives }: { lives: number }) {
     prevLives.current = lives;
   }, [lives]);
 
+  const displayMax = Math.min(maxLives, MAX_ICON_DISPLAY);
+
   return (
     <View
       style={styles.heartsRow}
-      // "assertive" interrupts current speech — appropriate for high-priority
-      // feedback like losing a life mid-answer-selection
-      accessibilityLabel={`${lives} of 3 lives remaining`}
+      accessible
+      accessibilityLabel={`${lives} of ${maxLives} lives remaining`}
       accessibilityLiveRegion="assertive"
     >
-      {[0, 1, 2].map((i) => (
-        <Heart key={i} alive={i < lives} animate={dyingIdx === i} />
-      ))}
+      {maxLives <= MAX_ICON_DISPLAY ? (
+        Array.from({ length: displayMax }, (_, i) => (
+          <Heart key={i} alive={i < lives} animate={dyingIdx === i} />
+        ))
+      ) : (
+        // Compact badge for large heart counts
+        <View style={styles.heartsBadge}>
+          <Text style={styles.heartsBadgeText}>❤️ {lives}</Text>
+        </View>
+      )}
     </View>
   );
 });
@@ -186,6 +213,8 @@ const ResultsModal = memo(function ResultsModal({
   score,
   correctCount,
   total,
+  xpEarned,
+  coinsEarned,
   onPlayAgain,
   onHome,
 }: {
@@ -194,6 +223,8 @@ const ResultsModal = memo(function ResultsModal({
   score: number;
   correctCount: number;
   total: number;
+  xpEarned: number;
+  coinsEarned: number;
   onPlayAgain: () => void;
   onHome: () => void;
 }) {
@@ -237,23 +268,40 @@ const ResultsModal = memo(function ResultsModal({
             style={modalStyles.statsRow}
             accessible
             importantForAccessibility="yes"
-            accessibilityLabel={`Score ${score}. ${correctCount} of ${total} correct. Accuracy ${accuracy} percent.`}
+            accessibilityLabel={`Score ${score}. ${correctCount} of ${total} correct. Accuracy ${accuracy} percent. ${xpEarned} XP earned.`}
           >
             <View style={modalStyles.stat}>
-              <Text style={modalStyles.statValue}>{score}</Text>
-              <Text style={modalStyles.statLabel}>SCORE</Text>
+              {/* minimumFontScale prevents values shrinking below 75% (15px floor) on narrow cells */}
+              <Text style={modalStyles.statValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>{score}</Text>
+              <Text style={modalStyles.statLabel} numberOfLines={1}>SCORE</Text>
             </View>
             <View style={modalStyles.statDivider} />
             <View style={modalStyles.stat}>
-              <Text style={modalStyles.statValue}>{correctCount}/{total}</Text>
-              <Text style={modalStyles.statLabel}>CORRECT</Text>
+              <Text style={modalStyles.statValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>{correctCount}/{total}</Text>
+              <Text style={modalStyles.statLabel} numberOfLines={1}>CORRECT</Text>
             </View>
             <View style={modalStyles.statDivider} />
             <View style={modalStyles.stat}>
-              <Text style={modalStyles.statValue}>{accuracy}%</Text>
-              <Text style={modalStyles.statLabel}>ACCURACY</Text>
+              <Text style={modalStyles.statValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>{accuracy}%</Text>
+              <Text style={modalStyles.statLabel} numberOfLines={1}>ACCURACY</Text>
+            </View>
+            <View style={modalStyles.statDivider} />
+            <View style={modalStyles.stat}>
+              <Text style={[modalStyles.statValue, modalStyles.statValueXp]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>+{xpEarned}</Text>
+              <Text style={modalStyles.statLabel} numberOfLines={1}>XP</Text>
             </View>
           </View>
+
+          {/* Coins line: shown only after the save resolves with a positive award.
+              Zero-coin sessions (anonymous users, save failures) render nothing. */}
+          {coinsEarned > 0 && (
+            <Text
+              style={modalStyles.coinsEarnedText}
+              accessibilityLabel={`You earned ${coinsEarned} coins`}
+            >
+              +{coinsEarned} 🪙
+            </Text>
+          )}
 
           <TouchableOpacity
             style={modalStyles.primaryBtn}
@@ -294,6 +342,7 @@ export default function QuizScreen() {
     resetQuiz,
     isQuizOver,
     lives,
+    initialLives,
     score,
     selectedAnswer,
     answerState,
@@ -302,18 +351,46 @@ export default function QuizScreen() {
     correctCount,
   } = useQuizStore();
 
-  const { user, isAnonymous } = useAuth();
+  const { user } = useAuth();
+  // Stable primitive — user object reference changes on token refresh even
+  // though the ID is unchanged. Using userId as a dep prevents fetchAndStart
+  // from rebuilding (and restarting the quiz) on silent background refreshes.
+  const userId = user?.id;
 
-  const [loading,     setLoading]     = useState(true);
-  const [fetchError,  setFetchError]  = useState<string | null>(null);
-  const [showResults, setShowResults] = useState(false);
-  const [isGameOver,  setIsGameOver]  = useState(false);
+  const [loading,      setLoading]      = useState(true);
+  const [fetchError,   setFetchError]   = useState<string | null>(null);
+  const [showResults,  setShowResults]  = useState(false);
+  const [isGameOver,   setIsGameOver]   = useState(false);
+  // nextLifeAt: when the next heart regenerates; set when the player has 0 lives.
+  const [nextLifeAt,   setNextLifeAt]   = useState<Date | null>(null);
+  // Coins awarded for the completed quiz session; populated from the
+  // save_quiz_session RPC response once the save resolves.
+  const [coinsEarned,  setCoinsEarned]  = useState(0);
+
+  // Achievement IDs unlocked this session. Stored here instead of enqueued
+  // immediately because the ResultsModal is a native-layer Modal — toasts rendered
+  // in the app root view are invisible behind it. Flush after the modal closes.
+  const pendingToastsRef = useRef<string[]>([]);
 
   const scrollRef      = useRef<ScrollView>(null);
   const nextPressedRef = useRef(false);
   // Prevents double-saves in the 800ms window between a wrong-answer highlight
   // and the auto-show-results timer firing while handleNext also runs.
   const hasSavedRef    = useRef(false);
+  // Null initial value avoids allocating a Promise object on every render
+  // (useRef(expr) evaluates expr each render; React discards it after mount).
+  // Awaited via `?? Promise.resolve()` in handleHome.
+  const savePromiseRef    = useRef<Promise<void> | null>(null);
+  // Guards handleHome against double-invocation during the async await gap.
+  const homeNavigatingRef  = useRef(false);
+  // Guards handlePlayAgain against double-invocation. Unlike homeNavigatingRef,
+  // this must be reset in fetchAndStart so subsequent games can press Play Again.
+  const playingAgainRef    = useRef(false);
+  // Monotonically-incrementing session counter. persistResult captures the value
+  // at call-time; the .then() skips setCoinsEarned when the counter has advanced,
+  // preventing a save from a previous session from overwriting the new session's
+  // coin display after Play Again is tapped while a save is still in-flight.
+  const quizGenRef = useRef<number>(0);
 
   const currentQuestion: Question | null = questions[currentIndex] ?? null;
 
@@ -334,12 +411,30 @@ export default function QuizScreen() {
   // ── Data fetching ───────────────────────────────────────────────────────────
 
   const fetchAndStart = useCallback(async () => {
-    hasSavedRef.current = false;
+    hasSavedRef.current       = false;
+    savePromiseRef.current    = null;
+    homeNavigatingRef.current = false;
+    playingAgainRef.current   = false;
+    pendingToastsRef.current  = [];
+    quizGenRef.current += 1;
     setLoading(true);
     setFetchError(null);
     setShowResults(false);
     setIsGameOver(false);
+    setCoinsEarned(0);
+    setNextLifeAt(null);
     try {
+      // Apply any regenerated hearts before checking if the player can start.
+      const { lives: currentLives, nextLifeAt: nextAt } = userId
+        ? await regenLives(userId)
+        : regenLivesLocal();
+
+      if (currentLives <= 0) {
+        setNextLifeAt(nextAt);
+        setLoading(false);
+        return;
+      }
+
       let query = supabase
         .from('questions')
         .select(QUESTION_COLUMNS)
@@ -357,15 +452,14 @@ export default function QuizScreen() {
       const { data, error } = await query;
       if (error) throw error;
 
-      startQuiz(era as Era, fisherYates((data ?? []) as Question[]));
+      startQuiz(era as Era, fisherYates((data ?? []) as Question[]), Math.min(LIVES_PER_QUIZ, currentLives));
     } catch (e) {
-      // Log raw error for debugging; never expose Supabase internals to the user
       console.error('[QuizScreen] fetch error:', e);
       setFetchError('Could not load questions. Check your connection and try again.');
     } finally {
       setLoading(false);
     }
-  }, [era, diff, startQuiz]);
+  }, [era, diff, startQuiz, userId]);
 
   useEffect(() => {
     void fetchAndStart();
@@ -389,36 +483,59 @@ export default function QuizScreen() {
   // because handleNext's useCallback deps are stable Zustand methods (never
   // change reference), so those values are always stale in handleNext's closure.
   const persistResult = useCallback(() => {
-    // isAnonymous and !user are first-line guards to skip the network call entirely.
     // saveQuizResult validates its own inputs — !era here is a redundant fast-path
     // to avoid a round-trip we know will be rejected.
-    if (hasSavedRef.current || !era || isAnonymous || !user) return;
+    if (hasSavedRef.current || !era || !user) return;
     hasSavedRef.current = true;
+    // Capture the generation at call-time. The .then() below compares against
+    // quizGenRef.current at resolution-time; if they differ, Play Again ran
+    // between the save starting and resolving.
+    const savedGen = quizGenRef.current;
     // Capture all values up-front so the error log is provably identical to
     // what was passed to saveQuizResult — no risk of log diverging from actual call.
-    const { score: s, currentIndex: idx, correctCount: cc } = useQuizStore.getState();
+    const { score: s, currentIndex: idx, correctCount: cc, maxStreak: ms, lives: lv } = useQuizStore.getState();
     const questionsAnswered = idx + 1;
     const questionsCorrect  = cc;
-    saveQuizResult({
+    const perfect           = cc === questionsAnswered;
+    const livesRemaining    = lv;
+    savePromiseRef.current = saveQuizResult({
       userId: user.id,
       era,
       score: s,
       questionsAnswered,
       questionsCorrect,
-    }).catch((err: unknown) => {
-      // Two failure modes:
-      //   sessionError  → no row written, score fully lost.
-      //   profileError  → session row exists but profile score not updated (non-atomic).
-      // hasSavedRef is already true so no retry will fire. Retry requires
-      // idempotent DB writes (unique constraint + ON CONFLICT) before it is safe.
-      console.error('[QuizScreen] failed to save quiz result:', err, {
-        era,
-        score: s,
-        questionsAnswered,
-        questionsCorrect,
+      maxStreak: ms,
+      perfect,
+      livesRemaining,
+    })
+      .then((result) => {
+        // Discard stale saves from a previous session.
+        if (quizGenRef.current !== savedGen) return;
+        setCoinsEarned(result.coinsEarned);
+        // Store — do NOT enqueue yet. The ResultsModal is a native Modal layer
+        // that sits above the app root view, so any toast started now would be
+        // invisible. Flush to the store after the modal closes (handlePlayAgain /
+        // handleHome), at which point there's no Modal obscuring the overlay.
+        pendingToastsRef.current = result.newlyUnlocked;
+        profileSignalStore.getState().bumpProfileVersion();
+      })
+      .catch((err: unknown) => {
+        console.error('[QuizScreen] failed to save quiz result:', err, {
+          era,
+          score: s,
+          questionsAnswered,
+          questionsCorrect,
+        });
+        // Surface the error so it's visible during development and testing.
+        // In a production build __DEV__ is false, so this is a no-op for users.
+        if (__DEV__) {
+          const msg = (err instanceof Error || (typeof err === 'object' && err !== null && 'message' in err))
+            ? (err as { message: string }).message
+            : String(err);
+          Alert.alert('Save failed (dev only)', msg);
+        }
       });
-    });
-  }, [era, isAnonymous, user]);
+  }, [era, user]);
 
   // Auto-show results when the player loses their last life.
   // The 800ms delay lets the red answer highlight remain visible before the modal
@@ -467,7 +584,26 @@ export default function QuizScreen() {
     // advanced === true: leave ref=true; useEffect([currentIndex]) will clear it
   }, [isQuizOver, nextQuestion, persistResult]);
 
-  const handlePlayAgain = useCallback(() => {
+  const handlePlayAgain = useCallback(async () => {
+    // Guard against double-invocation. The modal stays visible during the async
+    // await below (up to HOME_SAVE_TIMEOUT_MS), so the button remains tappable.
+    // Without this, two concurrent invocations both call fetchAndStart(), causing
+    // two concurrent question fetches that overwrite each other mid-render.
+    // fetchAndStart() resets this ref so the next game can press Play Again.
+    if (playingAgainRef.current) return;
+    playingAgainRef.current = true;
+    // Await the chained save promise before reading pendingToastsRef. This is the
+    // same pattern as handleHome. savePromiseRef.current is the result of
+    // saveQuizResult(...).then(...), so awaiting it guarantees persistResult's
+    // .then() has already populated pendingToastsRef — even if the user taps
+    // "Play Again" before the network RPC resolves. withTimeout ensures we never
+    // block longer than HOME_SAVE_TIMEOUT_MS regardless of network conditions.
+    await withTimeout(savePromiseRef.current ?? Promise.resolve(), HOME_SAVE_TIMEOUT_MS);
+    const pending = pendingToastsRef.current;
+    if (pending.length > 0) {
+      useAchievementStore.getState().enqueueToasts(pending);
+      pendingToastsRef.current = [];
+    }
     // resetQuiz() is load-bearing here: it changes lives/answerState/questions.length,
     // which are deps of the game-over effect. React fires that effect's cleanup
     // (clearTimeout) before the 800ms timer can fire — preventing a stale timer
@@ -476,10 +612,45 @@ export default function QuizScreen() {
     void fetchAndStart();
   }, [resetQuiz, fetchAndStart]);
 
-  const handleHome = useCallback(() => {
+  const handleHome = useCallback(async () => {
+    // Guard: prevent double-invocation during the async gap between the await
+    // resolving and router.replace() completing.
+    if (homeNavigatingRef.current) return;
+    homeNavigatingRef.current = true;
+    // Await the in-flight DB write so the next screen's useFocusEffect sees
+    // committed data. Raced against a 5 s timeout so a network drop can't
+    // freeze the UI. withTimeout always resolves (never rejects), so no try/catch needed.
+    await withTimeout(savePromiseRef.current ?? Promise.resolve(), HOME_SAVE_TIMEOUT_MS);
+    // Flush pending toasts after the save resolves — the Modal is now closing and
+    // the home screen is about to render, so the toast will be visible.
+    const pending = pendingToastsRef.current;
+    if (pending.length > 0) {
+      useAchievementStore.getState().enqueueToasts(pending);
+      pendingToastsRef.current = [];
+    }
     resetQuiz();
     router.replace('/');
+    // homeNavigatingRef intentionally never reset — router.replace() unmounts this component.
   }, [resetQuiz]);
+
+  // Wraps selectAnswer so a wrong answer also deducts one persistent heart from
+  // the backing store (DB for signed-in users, MMKV for guests). Fire-and-forget:
+  // the store already decremented lives synchronously so the UI updates immediately.
+  const handleSelectAnswer = useCallback((answer: string) => {
+    selectAnswer(answer);
+    const { answerState: newState } = useQuizStore.getState();
+    // Fire on every wrong answer — store already decremented synchronously so
+    // the UI updates immediately. Promise.resolve().then() ensures the local
+    // path runs inside the promise chain so MMKV throws are caught by .catch().
+    if (newState === 'wrong') {
+      const deduct = userId
+        ? deductLife(userId)
+        : Promise.resolve().then(() => deductLifeLocal());
+      deduct.catch((err) => {
+        console.error('[QuizScreen] deductLife error:', err);
+      });
+    }
+  }, [selectAnswer, userId]);
 
   // Memoised: only recreated when the reactive inputs that affect slot state change.
   const getSlotState = useCallback((answer: string): SlotState => {
@@ -530,6 +701,40 @@ export default function QuizScreen() {
     );
   }
 
+  // No lives — must come BEFORE the questions.length === 0 guard because both
+  // states have questions.length === 0 (startQuiz is never called when lives = 0).
+  // nextLifeAt.getTime() is guarded against Invalid Date via the isNaN check in
+  // regenLives — if parsing failed, nextLifeAt is null and we fall back to REGEN_HOURS.
+  if (lives <= 0 && questions.length === 0) {
+    const hoursUntil = nextLifeAt
+      ? Math.max(0, Math.ceil((nextLifeAt.getTime() - Date.now()) / 3_600_000))
+      : REGEN_HOURS;
+    return (
+      <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
+        <View style={styles.centered}>
+          <Text style={{ fontSize: 52 }}>💔</Text>
+          <Text style={styles.stateTitle}>Out of Hearts</Text>
+          <Text style={styles.stateDetail}>
+            {hoursUntil <= 1
+              ? 'Your next heart is regenerating soon.'
+              : `Your next heart regenerates in about ${hoursUntil} hours.`}
+          </Text>
+          <Text style={[styles.stateDetail, { marginTop: 4 }]}>
+            {userId ? 'Buy hearts from the Shop to play now.' : 'Sign up to buy hearts and play now.'}
+          </Text>
+          <TouchableOpacity
+            style={[styles.ghostBtn, { marginTop: 8 }]}
+            onPress={handleBack}
+            accessibilityRole="button"
+            accessibilityLabel="Go back"
+          >
+            <Text style={styles.ghostBtnText}>← Go Back</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   if (questions.length === 0) {
     return (
       <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
@@ -563,6 +768,8 @@ export default function QuizScreen() {
         score={score}
         correctCount={correctCount}
         total={currentIndex + 1}
+        xpEarned={score}
+        coinsEarned={coinsEarned}
         onPlayAgain={handlePlayAgain}
         onHome={handleHome}
       />
@@ -581,17 +788,14 @@ export default function QuizScreen() {
 
         <Text style={styles.hudEra} numberOfLines={1}>{era}</Text>
 
-        <View
-          style={styles.hudScoreBox}
-          accessibilityLabel={`Score: ${score}`}
-        >
-          <Text style={styles.hudScoreText}>{score}</Text>
+        <View style={styles.hudRight} accessible accessibilityLabel={`${score} XP earned`}>
+          <Text style={styles.hudXpText}>+{score} XP</Text>
         </View>
       </AnimatedSlot>
 
       {/* ── Lives ───────────────────────────────────────────────────────────── */}
       <AnimatedSlot delay={55}>
-        <HeartsRow lives={lives} />
+        <HeartsRow lives={lives} maxLives={initialLives} />
       </AnimatedSlot>
 
       {/* ── Scrollable body ─────────────────────────────────────────────────── */}
@@ -619,7 +823,7 @@ export default function QuizScreen() {
                 answer={answer}
                 slotState={getSlotState(answer)}
                 disabled={answerState !== 'idle'}
-                onSelect={selectAnswer}
+                onSelect={handleSelectAnswer}
               />
             </AnimatedSlot>
           ))}
@@ -669,7 +873,7 @@ const styles = StyleSheet.create({
     borderBottomColor: Colors.border,
   },
   hudBack: {
-    width: 40,
+    width: 56,
     alignItems: 'flex-start',
     justifyContent: 'center',
   },
@@ -686,26 +890,41 @@ const styles = StyleSheet.create({
     letterSpacing: 1.5,
     textAlign: 'center',
   },
-  hudScoreBox: {
-    width: 40,
+  hudRight: {
+    width: 56,
     alignItems: 'flex-end',
     justifyContent: 'center',
   },
-  hudScoreText: {
+  hudXpText: {
     fontFamily: Fonts.displayBold,
-    fontSize: 16,
-    color: Colors.textPrimary,
+    fontSize: 13,
+    color: Colors.gold,
+    letterSpacing: 0.5,
   },
 
   // Lives
   heartsRow: {
     flexDirection: 'row',
     justifyContent: 'center',
+    alignItems: 'center',
     gap: Spacing.sm,
     paddingVertical: Spacing.sm,
   },
   heart: {
     fontSize: 26,
+  },
+  heartsBadge: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs,
+    backgroundColor: Colors.surface,
+    borderRadius: Radius.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  heartsBadgeText: {
+    fontFamily: Fonts.displayBold,
+    fontSize: 18,
+    color: Colors.textPrimary,
   },
 
   // Scroll
@@ -900,6 +1119,15 @@ const modalStyles = StyleSheet.create({
     width: 1,
     height: 36,
     backgroundColor: Colors.border,
+  },
+  statValueXp: {
+    color: Colors.gold,
+  },
+  coinsEarnedText: {
+    fontFamily: Fonts.displayBold,
+    fontSize: 18,
+    color: Colors.gold,
+    letterSpacing: 1,
   },
   primaryBtn: {
     backgroundColor: Colors.gold,

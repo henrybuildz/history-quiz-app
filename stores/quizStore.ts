@@ -6,12 +6,15 @@ interface QuizStore {
   questions: Question[];
   currentIndex: number;
   lives: number;
+  initialLives: number;  // lives at quiz start — used for empty-heart display
   score: number;
   selectedAnswer: string | null;
   answerState: AnswerState;
   correctCount: number;
+  currentStreak: number;
+  maxStreak: number;
 
-  startQuiz: (era: Era, questions: Question[]) => void;
+  startQuiz: (era: Era, questions: Question[], initialLives: number) => void;
   selectAnswer: (answer: string) => void;
   nextQuestion: () => boolean;
   resetQuiz: () => void;
@@ -22,26 +25,29 @@ const INITIAL_STATE: Omit<QuizStore, 'startQuiz' | 'selectAnswer' | 'nextQuestio
   era: null,
   questions: [],
   currentIndex: 0,
-  lives: 3,
+  lives: 0,
+  initialLives: 0,
   score: 0,
   selectedAnswer: null,
   answerState: 'idle',
   correctCount: 0,
+  currentStreak: 0,
+  maxStreak: 0,
 };
 
 export const useQuizStore = create<QuizStore>((set, get) => ({
   ...INITIAL_STATE,
 
-  startQuiz: (era, questions) => {
+  startQuiz: (era, questions, initialLives) => {
     if (!questions || questions.length === 0) {
       console.warn('startQuiz called with empty questions array');
       return;
     }
-    set({ ...INITIAL_STATE, era, questions, lives: 3 });
+    set({ ...INITIAL_STATE, era, questions, lives: initialLives, initialLives });
   },
 
   selectAnswer: (answer) => {
-    const { questions, currentIndex, score, lives, correctCount, answerState } = get();
+    const { questions, currentIndex, score, lives, correctCount, currentStreak, maxStreak, answerState } = get();
 
     // Guard against double-tap
     if (answerState !== 'idle') return;
@@ -50,12 +56,15 @@ export const useQuizStore = create<QuizStore>((set, get) => ({
     if (!question) return;
 
     const isCorrect = answer === question.correct_answer;
+    const nextStreak = isCorrect ? currentStreak + 1 : 0;
     set({
       selectedAnswer: answer,
-      answerState: isCorrect ? 'correct' : 'wrong',
-      score: isCorrect ? score + 100 : score,
-      lives: isCorrect ? lives : Math.max(0, lives - 1),
-      correctCount: isCorrect ? correctCount + 1 : correctCount,
+      answerState:    isCorrect ? 'correct' : 'wrong',
+      score:          isCorrect ? score + 100 : score,
+      lives:          isCorrect ? lives : Math.max(0, lives - 1),
+      correctCount:   isCorrect ? correctCount + 1 : correctCount,
+      currentStreak:  nextStreak,
+      maxStreak:      Math.max(maxStreak, nextStreak),
     });
   },
 

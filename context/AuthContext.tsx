@@ -12,6 +12,11 @@ import { supabase } from '../lib/supabase'
 
 declare const __DEV__: boolean
 
+// Supabase Auth error codes for "email already registered".
+// These are Auth-server codes — distinct from PostgreSQL SQLSTATE codes
+// (e.g. '23505') which only appear in Data client errors, never Auth client errors.
+const DUPLICATE_EMAIL_AUTH_CODES = new Set(['email_exists', 'user_already_exists'])
+
 type AuthState = {
   session: Session | null
   user: User | null
@@ -100,8 +105,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const linkEmail = useCallback(async (email: string, password: string) => {
     const { error } = await supabase.auth.updateUser({ email, password })
     if (error) {
-      // If this email already has an account, route to sign-in instead
-      if (error.message.toLowerCase().includes('already')) {
+      // Use error.code, not message string-matching — message text is locale-dependent
+      // and can change across Supabase versions without notice.
+      if (DUPLICATE_EMAIL_AUTH_CODES.has(error.code ?? '')) {
         throw Object.assign(error, { code: 'email_exists' })
       }
       throw error

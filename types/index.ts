@@ -28,6 +28,7 @@ export type Era =
   | '19th Century'
   | 'Science History'
   | 'Religious History'
+  | 'Mongol Empire'
   | 'Mixed';
 
 export interface Question {
@@ -42,14 +43,3 @@ export interface Question {
 }
 
 export type AnswerState = 'idle' | 'correct' | 'wrong';
-
-export interface QuizSession {
-  era: Era;
-  questions: Question[];
-  currentIndex: number;
-  lives: number;
-  score: number;
-  selectedAnswer: string | null;
-  answerState: AnswerState;
-  correctCount: number;
-}

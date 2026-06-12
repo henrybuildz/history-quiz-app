@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import {
   View, Text, TextInput, TouchableOpacity,
   StyleSheet, KeyboardAvoidingView,
@@ -13,10 +13,14 @@ export default function SignInScreen() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
+  const loadingRef = useRef(false)
   const { signInWithEmail } = useAuth()
   const router = useRouter()
 
   const handleSubmit = async () => {
+    // Ref guard catches rapid double-taps in the render-cycle gap before
+    // the disabled prop flushes to the button.
+    if (loadingRef.current) return
     const trimmedEmail = email.trim()
     if (!trimmedEmail || !password) {
       Alert.alert('Missing Fields', 'Please enter your email and password.')
@@ -35,15 +39,21 @@ export default function SignInScreen() {
       return
     }
 
+    loadingRef.current = true
     setLoading(true)
     try {
       await signInWithEmail(trimmedEmail, password)
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Something went wrong.'
       Alert.alert('Sign In Failed', message)
+      return
     } finally {
+      loadingRef.current = false
       setLoading(false)
     }
+    // Navigation is outside try/catch — a router error won't surface as
+    // a misleading "Sign In Failed" alert.
+    router.replace('/(tabs)/')
   }
 
   return (

@@ -14,27 +14,9 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { useFocusEffect } from 'expo-router'
 import { useAuth } from '../../context/AuthContext'
 import { supabase } from '../../lib/supabase'
+import { validateUsername } from '../../lib/validation'
+import { extractErrorMessage } from '../../lib/errors'
 import { Colors, Fonts } from '../../constants/theme'
-
-const USERNAME_REGEX = /^[a-zA-Z0-9_]+$/
-
-function validate(value: string): string | null {
-  if (value.length < 3) return 'Username must be at least 3 characters'
-  if (value.length > 20) return 'Username must be 20 characters or less'
-  if (!USERNAME_REGEX.test(value)) return 'Only letters, numbers, and underscores'
-  return null
-}
-
-// Supabase PostgrestError does not extend Error, so instanceof Error is false.
-// This helper extracts .message from any throwable shape.
-function extractMessage(err: unknown): string {
-  if (err instanceof Error) return err.message
-  if (typeof err === 'object' && err !== null && 'message' in err) {
-    const msg = (err as Record<string, unknown>).message
-    if (typeof msg === 'string' && msg.length > 0) return msg
-  }
-  return 'An unexpected error occurred'
-}
 
 export default function UsernameScreen() {
   const { user, triggerUsernameRefresh } = useAuth()
@@ -42,53 +24,69 @@ export default function UsernameScreen() {
   const [username, setUsername] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const usernameRef = useRef('')
+  // Mirrors loading state so handleConfirm is stable (no loading in deps).
+  // Without this, loading in deps forces handleConfirm to rebuild on every
+  // loading transition, re-propping TextInput.onSubmitEditing each time.
+  const loadingRef = useRef(false)
+  // Controls when live validation activates — only after the first submit attempt,
+  // so errors don't appear while the user is still typing for the first time.
+  const hasSubmittedRef = useRef(false)
 
-  // useFocusEffect fires after the screen transition animation completes,
-  // which is precisely when keyboard focus should appear. A hardcoded
-  // setTimeout(350) guesses the animation duration and breaks when it changes
-  // (e.g. reduced-motion accessibility setting, future Expo animation changes).
-  // The 50 ms delay gives the native layout pass time to settle.
+  // Extract stable primitive — the User object reference changes on every token
+  // rotation even when the ID is unchanged; using userId as a dep prevents
+  // handleConfirm from rebuilding on silent background token refreshes.
+  const userId = user?.id
+
   useFocusEffect(
     useCallback(() => {
+      // Full symmetric reset: error, submission gate, and input value all reset
+      // together. A partial reset (only error + flag, not value) left stale text
+      // in the input with no error shown — the worst state for a returning user.
+      hasSubmittedRef.current = false
+      usernameRef.current     = ''
+      setUsername('')
+      setError(null)
       const timer = setTimeout(() => inputRef.current?.focus(), 50)
       return () => clearTimeout(timer)
     }, []),
   )
 
-  const handleChange = (value: string) => {
+  // setUsername and setError are stable useState setters — React guarantees they
+  // never change. Including them satisfies exhaustive-deps without any cost.
+  const handleChange = useCallback((value: string) => {
+    usernameRef.current = value
     setUsername(value)
-    // Re-validate live only after the first failed submit attempt, so errors
-    // don't appear before the user has had a chance to type anything
-    if (error !== null) setError(validate(value))
-  }
+    if (hasSubmittedRef.current) setError(validateUsername(value.trim()))
+  }, [setUsername, setError])
 
-  const handleConfirm = async () => {
-    // Guard against double-submit: TouchableOpacity.disabled doesn't block
-    // the keyboard's "Done" key from firing onSubmitEditing
-    if (loading) return
+  // Stable — loading and username accessed via refs, not state deps.
+  const handleConfirm = useCallback(async () => {
+    if (loadingRef.current) return
 
-    const validationError = validate(username)
+    // Set before the early-return so live validation activates even when the
+    // first submit attempt fails validation.
+    hasSubmittedRef.current = true
+
+    const currentUsername = usernameRef.current.trim()
+    const validationError = validateUsername(currentUsername)
     if (validationError) {
       setError(validationError)
       return
     }
 
-    if (!user) {
+    if (!userId) {
       Alert.alert('Session Expired', 'Please restart the app and try again.')
       return
     }
 
+    loadingRef.current = true
     setLoading(true)
     try {
-      // upsert instead of update: update() is a silent no-op when no row
-      // exists yet, causing an infinite NavigationGuard redirect loop.
-      // upsert inserts a new row or updates username on an existing one.
       const { error: dbError } = await supabase
         .from('profiles')
-        .upsert({ id: user.id, username })
+        .upsert({ id: userId, username: currentUsername }, { onConflict: 'id' })
       if (dbError) {
-        // 23505 = PostgreSQL unique_violation. Show a readable message instead
-        // of the raw constraint name that Supabase returns verbatim.
         if (dbError.code === '23505') {
           setError('That username is already taken')
           return
@@ -97,11 +95,12 @@ export default function UsernameScreen() {
       }
       triggerUsernameRefresh()
     } catch (err: unknown) {
-      Alert.alert('Error', extractMessage(err))
+      Alert.alert('Error', extractErrorMessage(err, 'Could not save username'))
     } finally {
+      loadingRef.current = false
       setLoading(false)
     }
-  }
+  }, [userId, triggerUsernameRefresh])
 
   return (
     <SafeAreaView style={styles.container}>

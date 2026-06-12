@@ -1,8 +1,9 @@
+import { useCallback } from 'react'
 import {
   View, Text, TouchableOpacity, StyleSheet,
   StatusBar
 } from 'react-native'
-import { SafeAreaView } from 'react-native-safe-area-context'
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
 import { useAuth } from '../../context/AuthContext'
 import { Colors, Fonts } from '../../constants/theme'
@@ -10,23 +11,27 @@ import { Colors, Fonts } from '../../constants/theme'
 export default function WelcomeScreen() {
   const router = useRouter()
   const { signInWithGoogle, isAnonymous } = useAuth()
+  // Live inset so the close button clears the Dynamic Island / notch on every device.
+  // Hardcoding top: 56 placed the button within the safe area on iPhone 14/15 Pro (59 px inset).
+  const insets = useSafeAreaInsets()
 
-  const handleGoogle = async () => {
+  const handleGoogle = useCallback(async () => {
     try {
       await signInWithGoogle()
       // Navigation handled by NavigationGuard once session changes
-    } catch (err: any) {
+    } catch (err: unknown) {
       // Google prompt cancelled by user -- no alert needed
-      console.log('Google sign-in dismissed:', err.message)
+      const msg = err instanceof Error ? err.message : String(err)
+      console.log('Google sign-in dismissed:', msg)
     }
-  }
+  }, [signInWithGoogle])
 
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" />
 
       <TouchableOpacity
-        style={styles.backButton}
+        style={[styles.backButton, { top: insets.top + 12 }]}
         onPress={() => router.back()}
         hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
       >
@@ -98,7 +103,6 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.bg },
   backButton: {
     position: 'absolute',
-    top: 56,
     right: 24,
     zIndex: 10,
     width: 36,

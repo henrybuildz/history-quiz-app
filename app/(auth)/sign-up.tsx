@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import {
   View, Text, TextInput, TouchableOpacity,
   StyleSheet, KeyboardAvoidingView,
@@ -15,10 +15,13 @@ export default function SignUpScreen() {
   const [confirm, setConfirm] = useState('')
   const [loading, setLoading] = useState(false)
   const [done, setDone] = useState(false)
+  const [submittedEmail, setSubmittedEmail] = useState('')
+  const loadingRef = useRef(false)
   const { signUpWithEmail } = useAuth()
   const router = useRouter()
 
   const handleSubmit = async () => {
+    if (loadingRef.current) return
     const trimmedEmail = email.trim()
     if (!trimmedEmail || !password || !confirm) {
       Alert.alert('Missing Fields', 'Please fill in all fields.')
@@ -33,20 +36,34 @@ export default function SignUpScreen() {
       return
     }
 
+    loadingRef.current = true
     setLoading(true)
     try {
       const { needsVerification } = await signUpWithEmail(trimmedEmail, password)
       if (needsVerification) {
+        setSubmittedEmail(trimmedEmail)
         setDone(true)
-        // NavigationGuard will route to (tabs) automatically if session returns
+        return
       }
-      // If no verification needed (email confirm disabled), session fires via
-      // onAuthStateChange and NavigationGuard routes automatically
-    } catch (err: any) {
-      Alert.alert('Sign Up Failed', err.message ?? 'Something went wrong.')
+    } catch (err: unknown) {
+      const code = (err as Record<string, unknown>)?.code
+      if (code === 'email_exists' || code === 'user_already_exists') {
+        Alert.alert(
+          'Account Already Exists',
+          'An account with this email already exists.',
+          [{ text: 'Sign In', onPress: () => router.replace('/(auth)/sign-in') }],
+        )
+      } else {
+        const message = err instanceof Error ? err.message : 'Something went wrong.'
+        Alert.alert('Sign Up Failed', message)
+      }
+      return
     } finally {
+      loadingRef.current = false
       setLoading(false)
     }
+    // Navigation outside try/catch — router errors won't appear as auth errors.
+    router.replace('/(tabs)/')
   }
 
   if (done) {
@@ -57,7 +74,7 @@ export default function SignUpScreen() {
           <Text style={styles.doneTitle}>Check Your Email</Text>
           <Text style={styles.doneSubtitle}>
             We sent a confirmation link to{'\n'}
-            <Text style={styles.doneEmail}>{email.trim()}</Text>
+            <Text style={styles.doneEmail}>{submittedEmail}</Text>
             {'\n\n'}Click the link to activate your account.
           </Text>
           <TouchableOpacity

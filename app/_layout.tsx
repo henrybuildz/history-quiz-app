@@ -9,6 +9,7 @@ import { useFonts } from 'expo-font';
 import { Colors } from '../constants/theme';
 import { AuthProvider } from '../context/AuthContext';
 import { NavigationGuard } from '../context/NavigationGuard';
+import { AchievementToast } from '../components/AchievementToast';
 
 // Explicit declaration removes the implicit assumption that __DEV__ is globally
 // typed. In Expo SDK 56 + @types/react-native it always is, but being explicit
@@ -82,6 +83,7 @@ export default function RootLayout() {
             {/* headerShown: false covers all screens. expo-router auto-registers
                 screens so no explicit Stack.Screen entries are needed here. */}
             <Stack screenOptions={{ headerShown: false }} />
+            <AchievementToast />
           </QueryClientProvider>
         </AuthProvider>
       </SafeAreaProvider>

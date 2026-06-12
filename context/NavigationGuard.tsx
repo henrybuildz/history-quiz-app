@@ -60,7 +60,8 @@ export function NavigationGuard() {
 
     const userId = session.user.id
 
-    const checkAndRoute = async () => {
+    const checkAndRoute = async (triggeredByVersionAdvance: boolean) => {
+      if (cancelled) return
       let username: string | null = null
 
       if (usernameCache.current?.userId === userId) {
@@ -91,15 +92,27 @@ export function NavigationGuard() {
         // flow. Anonymous users are included: once they have a username they
         // should proceed to the app (they can link their account from the
         // profile screen).
+        //
+        // Never redirect away from the username screen unless the user just
+        // saved a username (triggeredByVersionAdvance). Without this guard,
+        // a background DB query that finds an existing username (e.g. from a
+        // returning anonymous user or a DB trigger that auto-assigns one) would
+        // kick the user off the username screen before they can type anything.
+        //
+        // Contract: triggerUsernameRefresh() must ONLY be called after a
+        // successful username save. Calling it for other reasons (e.g. cache
+        // busting) will advance the version counter and auto-route users away
+        // from the username screen mid-typing.
         const safeToRedirect =
-          currentAuthPage === 'onboarding' || currentAuthPage === 'username'
+          currentAuthPage === 'onboarding' ||
+          (currentAuthPage === 'username' && triggeredByVersionAdvance)
         if (inAuthGroup && safeToRedirect) {
           router.replace('/(tabs)/')
         }
       }
     }
 
-    checkAndRoute().catch((err) => {
+    checkAndRoute(versionAdvanced).catch((err) => {
       if (__DEV__) console.error('[NavigationGuard] checkAndRoute error:', err)
     })
 

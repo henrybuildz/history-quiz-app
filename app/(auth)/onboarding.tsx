@@ -28,7 +28,7 @@ const SLIDES: Slide[] = [
   {
     emoji: '🏛️',
     title: 'Test Your Knowledge',
-    subtitle: '2,340 questions across 26 civilisations',
+    subtitle: '2,340 questions across 29 civilisations',
   },
   {
     emoji: '⚡',
