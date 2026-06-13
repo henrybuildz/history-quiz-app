@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { ACHIEVEMENT_MAP, type AchievementDef } from '../lib/achievements';
 
-interface ToastItem {
+export interface ToastItem {
   achievementId: string;
   def: AchievementDef;
   // Monotonically increasing key for React reconciliation of the toast queue.
@@ -17,9 +17,9 @@ interface AchievementStore {
   setUnlocked: (ids: string[]) => void;
   // Append newly unlocked achievements to the toast queue — called after quiz save.
   enqueueToasts: (ids: string[]) => void;
-  // Advance past the head of the queue — called by AchievementToast when the
-  // slide-out animation completes.
-  dismissToast: () => void;
+  // Remove an item by key from any queue position — called by AchievementCard
+  // after each card's slide-out animation completes (timer or tap).
+  dismissToastByKey: (key: number) => void;
   // Reset all state on sign-out so a newly signed-in user doesn't see a previous
   // user's achievements or any queued toasts from their session.
   clearAll: () => void;
@@ -79,13 +79,14 @@ export const useAchievementStore = create<AchievementStore>((set, get) => {
       });
     },
 
-    // FIX W2: guard against the empty-queue case. [].slice(1) produces a new []
-    // reference, which would cause Zustand to notify all subscribers and trigger
-    // re-renders even when there is nothing to remove. Returning `s` unchanged
-    // keeps the reference stable and skips the subscriber notification entirely.
-    dismissToast: () => set(s => {
+    // Key-based removal: allows any visible card to dismiss independently, not
+    // just the queue head. Returning `s` unchanged when the key is not found
+    // (or queue is empty) keeps the reference stable and skips re-renders.
+    dismissToastByKey: (key) => set(s => {
       if (s.toastQueue.length === 0) return s;
-      return { toastQueue: s.toastQueue.slice(1) };
+      const next = s.toastQueue.filter(item => item.key !== key);
+      if (next.length === s.toastQueue.length) return s;
+      return { toastQueue: next };
     }),
 
     clearAll: () => set({ unlockedIds: new Set(), toastQueue: [] }),

@@ -10,6 +10,7 @@ import { Colors } from '../constants/theme';
 import { AuthProvider } from '../context/AuthContext';
 import { NavigationGuard } from '../context/NavigationGuard';
 import { AchievementToast } from '../components/AchievementToast';
+import { initGuestHearts } from '../lib/supabase';
 
 // Explicit declaration removes the implicit assumption that __DEV__ is globally
 // typed. In Expo SDK 56 + @types/react-native it always is, but being explicit
@@ -41,6 +42,10 @@ export default function RootLayout() {
     'Cinzel-Regular': require('../assets/fonts/Cinzel-Regular.ttf'),
     'Cinzel-Bold': require('../assets/fonts/Cinzel-Bold.ttf'),
   });
+
+  useEffect(() => {
+    initGuestHearts().catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (__DEV__ && fontError) {

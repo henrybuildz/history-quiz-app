@@ -14,6 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { Colors, Fonts, Spacing, Radius } from '../../constants/theme';
+import { Tooltip } from '../../components/Tooltip';
 import { useAuth } from '../../context/AuthContext';
 import { supabase, getProfile, ProfileRow, getProfileStats, ProfileStats, XP_PER_LEVEL, getUnlockedAchievements } from '../../lib/supabase';
 import { validateUsername } from '../../lib/validation';
@@ -26,12 +27,8 @@ import { ACHIEVEMENTS } from '../../lib/achievements';
 // satisfying useEffect's (() => void) cleanup contract without an inline allocation.
 const noop = () => {};
 
-// Pre-chunked into rows of 4 at module level — ACHIEVEMENTS is static.
 const GRID_COLS = 4;
-const ACHIEVEMENT_ROWS = Array.from(
-  { length: Math.ceil(ACHIEVEMENTS.length / GRID_COLS) },
-  (_, i) => ACHIEVEMENTS.slice(i * GRID_COLS, i * GRID_COLS + GRID_COLS),
-);
+const MIN_VISIBLE = 4;
 
 // ---------------------------------------------------------------------------
 // Types
@@ -42,6 +39,10 @@ type StatItem = {
   value: string;
   heartPrefix?: boolean;
 };
+
+type AchievementSlot =
+  | { kind: 'unlocked'; achievement: (typeof ACHIEVEMENTS)[number] }
+  | { kind: 'locked'; id: string };
 
 // ---------------------------------------------------------------------------
 // Module-level derived constants
@@ -109,10 +110,24 @@ export default function ProfileScreen() {
   const unlockedIds          = useAchievementStore(s => s.unlockedIds)
   const setUnlocked          = useAchievementStore(s => s.setUnlocked)
   const clearAllAchievements = useAchievementStore(s => s.clearAll)
-  const unlockedCount = useMemo(
-    () => ACHIEVEMENTS.filter(a => unlockedIds.has(a.id)).length,
-    [unlockedIds],
-  )
+  const { unlockedCount, displayRows } = useMemo(() => {
+    const unlockedList = ACHIEVEMENTS.filter(a => unlockedIds.has(a.id))
+    const lockedSlotCount = unlockedList.length < MIN_VISIBLE
+      ? MIN_VISIBLE - unlockedList.length
+      : 0
+    const slots: AchievementSlot[] = [
+      ...unlockedList.map(a => ({ kind: 'unlocked' as const, achievement: a })),
+      ...Array.from({ length: lockedSlotCount }, (_, i) => ({
+        kind: 'locked' as const,
+        id: `locked-${i}`,
+      })),
+    ]
+    const rows = Array.from(
+      { length: Math.ceil(slots.length / GRID_COLS) },
+      (_, i) => slots.slice(i * GRID_COLS, i * GRID_COLS + GRID_COLS),
+    )
+    return { unlockedCount: unlockedList.length, displayRows: rows }
+  }, [unlockedIds])
   // True on first focus until getUnlockedAchievements resolves — dims the grid
   // so the "all locked" flash matches the stats grid's loading pattern.
   const [achievementsLoading, setAchievementsLoading] = useState(() => !!user)
@@ -262,7 +277,7 @@ export default function ProfileScreen() {
       }
 
     // userId/hasUser change on login/logout and anonymous→permanent upgrades, not token refresh.
-    }, [userId, hasUser, fetchProfileData, profileVersion, setUnlocked, clearAllAchievements]),
+    }, [userId, hasUser, fetchProfileData, profileVersion]),
   )
 
   // Depend on user?.email, not user — the User object reference changes on every
@@ -322,6 +337,10 @@ export default function ProfileScreen() {
   // Mirrors editText so handleEditSave can read the latest value without
   // being recreated on every keystroke (avoids re-propping onSubmitEditing).
   const editTextRef = useRef('');
+  const isMountedRef = useRef(true);
+  useEffect(() => {
+    return () => { isMountedRef.current = false; };
+  }, []);
 
   const handleEditStart = useCallback(() => {
     const initial = profile?.username ?? '';
@@ -366,6 +385,7 @@ export default function ProfileScreen() {
       const { error: dbError } = await supabase
         .from('profiles')
         .upsert({ id: userId, username: trimmed }, { onConflict: 'id' });
+      if (!isMountedRef.current) return;
       if (dbError) {
         if (dbError.code === '23505') {
           setEditError('Username already taken');
@@ -378,10 +398,10 @@ export default function ProfileScreen() {
       triggerUsernameRefresh();
       setEditingUsername(false);
     } catch (err: unknown) {
-      setEditError(extractErrorMessage(err, 'Could not save username'));
+      if (isMountedRef.current) setEditError(extractErrorMessage(err, 'Could not save username'));
     } finally {
       editLoadingRef.current = false;
-      setEditLoading(false);
+      if (isMountedRef.current) setEditLoading(false);
     }
   }, [userId, profile?.username, triggerUsernameRefresh]);
 
@@ -458,68 +478,67 @@ export default function ProfileScreen() {
         )}
 
         {/* Avatar + username */}
-        <Animated.View
-          style={[styles.avatarSection, loadingStyle]}
-          entering={hasMounted.current ? undefined : ANIM_AVATAR}
-        >
-          <View style={styles.avatarCircle}>
-            <Text style={styles.avatarInitials}>{initials}</Text>
-          </View>
+        <Animated.View entering={hasMounted.current ? undefined : ANIM_AVATAR} style={styles.animWrapper}>
+          <View style={[styles.avatarSection, loadingStyle]}>
+            <View style={styles.avatarCircle}>
+              <Text style={styles.avatarInitials}>{initials}</Text>
+            </View>
 
-          {editingUsername ? (
-            <View style={styles.editUsernameContainer}>
-              <View style={styles.editUsernameRow}>
-                <TextInput
-                  style={styles.editUsernameInput}
-                  value={editText}
-                  onChangeText={handleEditChange}
-                  autoFocus
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  maxLength={20}
-                  returnKeyType="done"
-                  onSubmitEditing={handleEditSave}
-                  accessibilityLabel="New username"
-                />
-                <TouchableOpacity
-                  style={[styles.editActionBtn, styles.editSaveBtn, editLoading && styles.editSaveBtnDisabled]}
-                  onPress={handleEditSave}
-                  disabled={editLoading}
-                  accessibilityRole="button"
-                  accessibilityLabel="Save username"
-                >
-                  <Text style={styles.editSaveText}>✓</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.editActionBtn, styles.editCancelBtn]}
-                  onPress={handleEditCancel}
-                  accessibilityRole="button"
-                  accessibilityLabel="Cancel editing"
-                >
-                  <Text style={styles.editCancelText}>✕</Text>
-                </TouchableOpacity>
+            {editingUsername ? (
+              <View style={styles.editUsernameContainer}>
+                <View style={styles.editUsernameRow}>
+                  <TextInput
+                    style={styles.editUsernameInput}
+                    value={editText}
+                    onChangeText={handleEditChange}
+                    autoFocus
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    maxLength={20}
+                    returnKeyType="done"
+                    onSubmitEditing={handleEditSave}
+                    accessibilityLabel="New username"
+                  />
+                  <TouchableOpacity
+                    style={[styles.editActionBtn, styles.editSaveBtn, editLoading && styles.editSaveBtnDisabled]}
+                    onPress={handleEditSave}
+                    disabled={editLoading}
+                    accessibilityRole="button"
+                    accessibilityLabel="Save username"
+                  >
+                    <Text style={styles.editSaveText}>✓</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.editActionBtn, styles.editCancelBtn]}
+                    onPress={handleEditCancel}
+                    accessibilityRole="button"
+                    accessibilityLabel="Cancel editing"
+                  >
+                    <Text style={styles.editCancelText}>✕</Text>
+                  </TouchableOpacity>
+                </View>
+                {editError != null && (
+                  <Text style={styles.editErrorText}>{editError}</Text>
+                )}
               </View>
-              {editError != null && (
-                <Text style={styles.editErrorText}>{editError}</Text>
-              )}
-            </View>
-          ) : (
-            <View style={styles.usernameRow}>
-              <Text style={styles.username}>{displayName}</Text>
-              {user && (
-                <TouchableOpacity
-                  style={styles.editPencilBtn}
-                  onPress={handleEditStart}
-                  accessibilityRole="button"
-                  accessibilityLabel="Edit username"
-                >
-                  <Text style={styles.editPencilIcon}>✏</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-          )}
+            ) : (
+              <View style={styles.usernameRow}>
+                <Text style={styles.username}>{displayName}</Text>
+                {user && (
+                  <TouchableOpacity
+                    style={styles.editPencilBtn}
+                    onPress={handleEditStart}
+                    accessibilityRole="button"
+                    accessibilityLabel="Edit username"
+                  >
+                    <Text style={styles.editPencilIcon}>✏</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            )}
 
-          <Text style={styles.levelLabel}>{`Level ${profile?.level ?? 1}`}</Text>
+            <Text style={styles.levelLabel}>{`Level ${profile?.level ?? 1}`}</Text>
+          </View>
         </Animated.View>
 
         {/* XP progress bar */}
@@ -537,81 +556,102 @@ export default function ProfileScreen() {
 
         {/* Stats grid — dimmed until BOTH profile and stats have loaded, so
              Total Score / Level never undim while Quizzes / Accuracy still show 0. */}
-        <Animated.View
-          entering={hasMounted.current ? undefined : ANIM_STATS}
-          style={(profileLoading || statsLoading) ? styles.loading : undefined}
-        >
-          <Text style={styles.sectionTitle}>Statistics</Text>
-          <View style={styles.statsGrid}>
-            {statRows.map((row) => (
-              <View key={row[0]!.label} style={styles.statsRow}>
-                {row.map((item) => (
-                  <StatCard key={item.label} item={item} />
-                ))}
-              </View>
-            ))}
+        <Animated.View entering={hasMounted.current ? undefined : ANIM_STATS} style={styles.animWrapper}>
+          <View style={(profileLoading || statsLoading) ? styles.loading : undefined}>
+            <Text style={styles.sectionTitle}>Statistics</Text>
+            <View style={styles.statsGrid}>
+              {statRows.map((row) => (
+                <View key={row[0]!.label} style={styles.statsRow}>
+                  {row.map((item) => (
+                    <StatCard key={item.label} item={item} />
+                  ))}
+                </View>
+              ))}
+            </View>
           </View>
         </Animated.View>
 
         {/* Achievements */}
-        <Animated.View
-          entering={hasMounted.current ? undefined : ANIM_ACHIEVEMENTS}
-          style={achievementsLoading ? styles.loading : undefined}
-        >
-          <Text style={styles.sectionTitle}>
-            {`Achievements (${unlockedCount}/${ACHIEVEMENTS.length})`}
-          </Text>
-          <View style={styles.achievementGrid}>
-            {ACHIEVEMENT_ROWS.map((row, rowIdx) => (
-              <View key={rowIdx} style={styles.achievementRow}>
-                {row.map(a => {
-                  const unlocked    = unlockedIds.has(a.id)
-                  const hideSecret  = a.isSecret && !unlocked
-                  return (
-                    <View
-                      key={a.id}
-                      style={[styles.achievementCell, unlocked && styles.achievementCellUnlocked]}
-                      accessible
-                      accessibilityLabel={
-                        hideSecret ? 'Secret achievement — keep playing to unlock'
-                          : unlocked ? `${a.name}: ${a.description} — unlocked`
-                          : `${a.name}: ${a.description} — locked`
+        <Animated.View entering={hasMounted.current ? undefined : ANIM_ACHIEVEMENTS} style={styles.animWrapper}>
+          <View style={achievementsLoading ? styles.loading : undefined}>
+            <Text style={styles.sectionTitle}>
+              {`Achievements (${unlockedCount}/${ACHIEVEMENTS.length})`}
+            </Text>
+            <View style={styles.achievementGrid}>
+              {displayRows.map((row) => {
+                const firstSlot = row[0]!
+                const rowKey = firstSlot.kind === 'unlocked'
+                  ? firstSlot.achievement.id
+                  : firstSlot.id
+                return (
+                  <View key={rowKey} style={styles.achievementRow}>
+                    {row.map(slot => {
+                      if (slot.kind === 'locked') {
+                        return (
+                          <View
+                            key={slot.id}
+                            style={styles.achievementCell}
+                            accessible
+                            accessibilityLabel="Locked achievement"
+                          >
+                            <Text style={[styles.achievementIcon, styles.dimmed]}>
+                              {'🔒'}
+                            </Text>
+                            <Text
+                              style={[styles.achievementName, styles.achievementNameLocked]}
+                              numberOfLines={2}
+                            >
+                              {'???'}
+                            </Text>
+                          </View>
+                        )
                       }
-                    >
-                      <Text style={[styles.achievementIcon, !unlocked && styles.dimmed]}>
-                        {hideSecret ? '🔒' : a.icon}
-                      </Text>
-                      <Text
-                        style={[styles.achievementName, !unlocked && styles.achievementNameLocked]}
-                        numberOfLines={2}
-                      >
-                        {hideSecret ? '???' : a.name}
-                      </Text>
-                    </View>
-                  )
-                })}
-                {/* Fill trailing empty cells so flex alignment holds */}
-                {row.length < GRID_COLS && Array.from({ length: GRID_COLS - row.length }, (_, i) => (
-                  <View key={`pad-${i}`} style={styles.achievementCellPad} />
-                ))}
-              </View>
-            ))}
+                      const a = slot.achievement
+                      return (
+                        <View
+                          key={a.id}
+                          style={[styles.achievementCell, styles.achievementCellUnlocked]}
+                          accessible
+                          accessibilityLabel={`${a.name}: ${a.description} - unlocked`}
+                        >
+                          <Text style={styles.achievementIcon}>
+                            {a.icon}
+                          </Text>
+                          <Text
+                            style={styles.achievementName}
+                            numberOfLines={2}
+                          >
+                            {a.name}
+                          </Text>
+                        </View>
+                      )
+                    })}
+                    {/* Fill trailing empty cells so flex alignment holds */}
+                    {row.length < GRID_COLS && Array.from({ length: GRID_COLS - row.length }, (_, i) => (
+                      <View key={`pad-${i}`} style={styles.achievementCellPad} />
+                    ))}
+                  </View>
+                )
+              })}
+            </View>
           </View>
         </Animated.View>
 
         {/* Account */}
         <View>
           <Text style={styles.sectionTitle}>Account</Text>
-          <TouchableOpacity
-            style={styles.actionRow}
-            onPress={() => {}}
-            activeOpacity={0.7}
-            accessibilityRole="button"
-            accessibilityLabel="About"
-          >
-            <Text style={styles.actionLabel}>About</Text>
-            <Text style={styles.actionChevron}>{'›'}</Text>
-          </TouchableOpacity>
+          <Tooltip label="App version 1.0 — history quiz">
+            <TouchableOpacity
+              style={styles.actionRow}
+              onPress={() => {}}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel="About"
+            >
+              <Text style={styles.actionLabel}>About</Text>
+              <Text style={styles.actionChevron}>{'›'}</Text>
+            </TouchableOpacity>
+          </Tooltip>
           <TouchableOpacity
             style={styles.actionRow}
             onPress={() => {}}
@@ -631,7 +671,7 @@ export default function ProfileScreen() {
               accessibilityRole="button"
               accessibilityLabel="Log Out"
             >
-              <Text style={styles.actionLabel}>{signingOut ? 'Signing out…' : 'Log Out'}</Text>
+              <Text style={styles.actionLabel}>{signingOut ? 'Signing out...' : 'Log Out'}</Text>
               <Text style={styles.actionChevron}>{'›'}</Text>
             </TouchableOpacity>
           )}
@@ -698,6 +738,12 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.displayBold,
     fontSize: 13,
     color: Colors.textPrimary, // dark brown on gold: ~7:1 contrast, passes WCAG AA
+  },
+  // Pure animation wrapper — no visual style. alignSelf: 'stretch' makes the
+  // full-width guarantee explicit rather than relying on the parent's default
+  // alignItems: 'stretch', which could break if the parent is ever changed.
+  animWrapper: {
+    alignSelf: 'stretch',
   },
   avatarSection: {
     alignItems: 'center',

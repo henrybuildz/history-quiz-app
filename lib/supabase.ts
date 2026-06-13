@@ -1,7 +1,9 @@
 import 'react-native-url-polyfill/auto'
 import * as SecureStore from 'expo-secure-store'
+import * as FileSystem from 'expo-file-system/legacy'
 import { createClient } from '@supabase/supabase-js'
-import { createMMKV, type MMKV } from 'react-native-mmkv'
+
+declare const __DEV__: boolean
 
 const ExpoSecureStoreAdapter = {
   getItem: (key: string) => SecureStore.getItemAsync(key),
@@ -131,16 +133,17 @@ export async function spendCoins(
   if (!Number.isInteger(amount) || amount <= 0)
     throw new Error(`spendCoins: amount must be a positive integer, got ${amount}`)
   // Mirror the SQL guard exactly — p_hearts must be between 1 and 12.
-  if (!Number.isInteger(heartsToAdd) || heartsToAdd <= 0 || heartsToAdd > 12)
-    throw new Error(`spendCoins: heartsToAdd must be between 1 and 12, got ${heartsToAdd}`)
-  if (!itemName.trim())
+  if (!Number.isInteger(heartsToAdd) || heartsToAdd <= 0 || heartsToAdd > MAX_LIVES)
+    throw new Error(`spendCoins: heartsToAdd must be between 1 and ${MAX_LIVES}, got ${heartsToAdd}`)
+  const trimmedItem = itemName.trim()
+  if (!trimmedItem)
     throw new Error('spendCoins: itemName must not be empty')
 
   const { data, error } = await supabase.rpc('spend_coins', {
     p_user_id: userId,
     p_amount:  amount,
     p_hearts:  heartsToAdd,
-    p_item:    itemName,
+    p_item:    trimmedItem,
   })
   if (error) throw error
 
@@ -208,16 +211,13 @@ export async function deductLife(userId: string): Promise<number> {
 }
 
 // ── Guest hearts (local, mirrors DB mechanic) ──────────────────────────────────
-// Guests get the same heart pool and regen rules as signed-in users, stored
-// in MMKV instead of the DB.
-
-// Lazy singleton — avoids crashing the module if the native bridge isn't ready
-// at import time (e.g. Expo Go fast-refresh).
-let _guestStorage: MMKV | null = null
-function _getStorage(): MMKV {
-  if (!_guestStorage) _guestStorage = createMMKV({ id: 'guest-hearts' })
-  return _guestStorage
-}
+// Guests get the same heart pool and regen rules as signed-in users.
+// Write-through cache: sync reads from memory, fire-and-forget async writes to
+// expo-file-system (Expo Go compatible, persists across restarts).
+//
+// Cache starts at MAX_LIVES so early reads before initGuestHearts() resolves
+// always return a valid value (worst case: one session with wrong count if the
+// user navigates into a quiz within ~50ms of launch).
 
 interface GuestHeartsData {
   lives: number
@@ -228,30 +228,80 @@ function _freshGuestHearts(): GuestHeartsData {
   return { lives: MAX_LIVES, last_life_lost_at: null }
 }
 
-function _readGuestHearts(): GuestHeartsData {
+// Pre-initialised to a valid state — eliminates the null-before-init race.
+let _guestHeartsCache: GuestHeartsData = _freshGuestHearts()
+
+// Idempotent: second call returns the same in-flight promise.
+let _initPromise: Promise<void> | null = null
+
+// Cached once — documentDirectory is stable for the process lifetime.
+// null means we're on web or the native bridge isn't ready; skip all file I/O.
+let _heartsPathCache: string | null | undefined = undefined
+
+function _heartsPath(): string | null {
+  if (_heartsPathCache !== undefined) return _heartsPathCache
+  const dir = FileSystem.documentDirectory  // string on RN, null on web
+  _heartsPathCache = dir ? `${dir}guest-hearts.json` : null
+  return _heartsPathCache
+}
+
+// Call once at app startup (e.g. in _layout.tsx) to rehydrate from disk.
+// Safe to call multiple times — only runs once per process lifetime.
+export function initGuestHearts(): Promise<void> {
+  if (_initPromise) return _initPromise
+  _initPromise = _doInitGuestHearts()
+  return _initPromise
+}
+
+async function _doInitGuestHearts(): Promise<void> {
+  const path = _heartsPath()
+  if (!path) return // web — stay in-memory only
   try {
-    const raw = _getStorage().getString('data')
-    if (!raw) return _freshGuestHearts()
-    const p = JSON.parse(raw) as Partial<GuestHeartsData>
-    return {
-      // Clamp to valid range — guards against corrupted or externally written values.
-      // Round before clamping — float values (e.g. 3.7) would otherwise
-      // silently propagate and cause off-by-one heart display bugs.
-      lives:             typeof p.lives === 'number'
-        ? Math.max(0, Math.min(MAX_LIVES, Math.round(p.lives)))
-        : MAX_LIVES,
-      last_life_lost_at: typeof p.last_life_lost_at === 'string' ? p.last_life_lost_at : null,
-    }
+    // Single read — cheaper than getInfoAsync + readAsStringAsync.
+    // Throws if the file doesn't exist; caught below (expected on first launch).
+    const raw = await FileSystem.readAsStringAsync(path)
+
+    // Cast to unknown first — the typeof guards below are the real type validation.
+    const p = JSON.parse(raw) as unknown
+    if (typeof p !== 'object' || p === null || Array.isArray(p)) return
+
+    const data = p as Record<string, unknown>
+
+    const livesRaw = data.lives
+    const lives = typeof livesRaw === 'number' && Number.isFinite(livesRaw)
+      ? Math.max(0, Math.min(MAX_LIVES, Math.round(livesRaw)))
+      : MAX_LIVES
+
+    // Validate the date string is parseable — rejects "not-a-date" strings.
+    const rawDate = data.last_life_lost_at
+    const last_life_lost_at =
+      typeof rawDate === 'string' && !isNaN(new Date(rawDate).getTime())
+        ? rawDate
+        : null
+
+    _guestHeartsCache = { lives, last_life_lost_at }
   } catch {
-    return _freshGuestHearts()
+    // File absent (first launch) or corrupt — cache stays at MAX_LIVES default.
+    // Will be overwritten with real data on the next _writeGuestHearts call.
+    if (__DEV__) console.warn('[GuestHearts] initGuestHearts: file missing or unreadable (normal on first launch)')
   }
 }
 
-function _writeGuestHearts(data: GuestHeartsData): void {
-  _getStorage().set('data', JSON.stringify(data))
+// Returns a defensive copy — callers cannot accidentally mutate cached state.
+function _readGuestHearts(): GuestHeartsData {
+  return { lives: _guestHeartsCache.lives, last_life_lost_at: _guestHeartsCache.last_life_lost_at }
 }
 
-// Mirrors regen_lives SQL. Call on quiz start. Synchronous — MMKV is sync.
+function _writeGuestHearts(data: GuestHeartsData): void {
+  _guestHeartsCache = { lives: data.lives, last_life_lost_at: data.last_life_lost_at }
+  const path = _heartsPath()
+  if (!path) return // web — no file I/O
+  FileSystem.writeAsStringAsync(path, JSON.stringify(_guestHeartsCache)).catch((e) => {
+    if (__DEV__) console.warn('[GuestHearts] Write failed:', e)
+  })
+}
+
+// Mirrors regen_lives SQL. Call on quiz start. Sync reads from in-memory cache.
 export function regenLivesLocal(): RegenLivesResult {
   const { lives, last_life_lost_at } = _readGuestHearts()
 
@@ -259,20 +309,21 @@ export function regenLivesLocal(): RegenLivesResult {
     return { lives, nextLifeAt: null }
   }
 
+  // Single timestamp snapshot — all time arithmetic in this call uses the same
+  // moment so the stored anchor and returned nextLifeAt are never skewed.
+  const nowMs = Date.now()
   const lastLost = last_life_lost_at === null ? null : new Date(last_life_lost_at)
 
-  // No anchor or corrupt anchor — start the regen clock from now using a single
-  // captured timestamp so the stored anchor and returned nextLifeAt are identical.
+  // No anchor or corrupt anchor — start the regen clock from now.
   if (lastLost === null || isNaN(lastLost.getTime())) {
-    const anchorMs = Date.now()
-    _writeGuestHearts({ lives, last_life_lost_at: new Date(anchorMs).toISOString() })
-    return { lives, nextLifeAt: new Date(anchorMs + REGEN_MS) }
+    _writeGuestHearts({ lives, last_life_lost_at: new Date(nowMs).toISOString() })
+    return { lives, nextLifeAt: new Date(nowMs + REGEN_MS) }
   }
 
   // Compute whole regen intervals elapsed directly against REGEN_MS — no
   // intermediate elapsedH float, no raw 3_600_000 literal.
   const toAdd = Math.min(
-    Math.floor((Date.now() - lastLost.getTime()) / REGEN_MS),
+    Math.floor((nowMs - lastLost.getTime()) / REGEN_MS),
     MAX_LIVES - lives,
   )
 
@@ -453,7 +504,7 @@ export async function getProfileStats(userId: string): Promise<ProfileStats> {
   })
 
   if (error) {
-    console.error('getProfileStats error:', error)
+    if (__DEV__) console.error('[getProfileStats]', error)
     return zeros
   }
 
