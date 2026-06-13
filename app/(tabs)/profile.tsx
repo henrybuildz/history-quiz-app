@@ -9,12 +9,22 @@ import {
   Alert,
   Keyboard,
   RefreshControl,
+  PanResponder,
+  Switch,
+  Linking,
+  Modal,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import Animated, {
+  FadeInDown,
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  withTiming,
+  runOnJS,
+} from 'react-native-reanimated';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { Colors, Fonts, Spacing, Radius } from '../../constants/theme';
-import { Tooltip } from '../../components/Tooltip';
 import { useAuth } from '../../context/AuthContext';
 import { supabase, getProfile, ProfileRow, getProfileStats, ProfileStats, XP_PER_LEVEL, getUnlockedAchievements } from '../../lib/supabase';
 import { validateUsername } from '../../lib/validation';
@@ -22,6 +32,7 @@ import { extractErrorMessage } from '../../lib/errors';
 import { useProfileSignal } from '../../stores/profileSignal';
 import { useAchievementStore } from '../../stores/achievementStore';
 import { ACHIEVEMENTS } from '../../lib/achievements';
+import { useAudioStore } from '../../stores/audioStore';
 
 // Stable noop used as the return value of fetchProfileData when userId is absent,
 // satisfying useEffect's (() => void) cleanup contract without an inline allocation.
@@ -435,6 +446,61 @@ export default function ProfileScreen() {
     hasMounted.current = true;
   }, []);
 
+  // ----- Settings modal -----
+
+  const insets = useSafeAreaInsets();
+  const { musicVolume, isMusicEnabled, setMusicVolume, setMusicEnabled } = useAudioStore();
+
+  const [settingsVisible, setSettingsVisible] = useState(false);
+  const settingsY = useSharedValue(800);
+
+  const sheetAnimStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: settingsY.value }],
+  }));
+
+  const handleOpenSettings = useCallback(() => {
+    settingsY.value = 800;
+    setSettingsVisible(true);
+    // Start animation immediately — Reanimated runs on the UI thread and will
+    // already be mid-spring by the time the Modal commit paints
+    settingsY.value = withSpring(0, { damping: 18, stiffness: 150 });
+  }, [settingsY]);
+
+  const handleCloseSettings = useCallback(() => {
+    settingsY.value = withTiming(800, { duration: 220 }, (finished) => {
+      if (finished) runOnJS(setSettingsVisible)(false);
+    });
+  }, [settingsY]);
+
+  const [sliderWidth, setSliderWidth] = useState(0);
+  const sliderWidthRef = useRef(0);
+  const sliderGestureStartVolRef = useRef(0);
+  const musicVolumeRef = useRef(musicVolume);
+  useEffect(() => { musicVolumeRef.current = musicVolume; }, [musicVolume]);
+
+  const handleSliderLayout = useCallback((e: { nativeEvent: { layout: { width: number } } }) => {
+    const w = e.nativeEvent.layout.width;
+    sliderWidthRef.current = w;
+    setSliderWidth(w);
+  }, []);
+
+  const volumePanResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => true,
+        onMoveShouldSetPanResponder: () => true,
+        onPanResponderGrant: () => {
+          sliderGestureStartVolRef.current = musicVolumeRef.current;
+        },
+        onPanResponderMove: (_, gs) => {
+          if (sliderWidthRef.current <= 0) return;
+          const fraction = gs.dx / sliderWidthRef.current;
+          setMusicVolume(Math.max(0, Math.min(1, sliderGestureStartVolRef.current + fraction)));
+        },
+      }),
+    [setMusicVolume],
+  );
+
   return (
     <SafeAreaView style={styles.root} edges={SAFE_EDGES}>
       <ScrollView
@@ -640,26 +706,14 @@ export default function ProfileScreen() {
         {/* Account */}
         <View>
           <Text style={styles.sectionTitle}>Account</Text>
-          <Tooltip label="App version 1.0 — history quiz">
-            <TouchableOpacity
-              style={styles.actionRow}
-              onPress={() => {}}
-              activeOpacity={0.7}
-              accessibilityRole="button"
-              accessibilityLabel="About"
-            >
-              <Text style={styles.actionLabel}>About</Text>
-              <Text style={styles.actionChevron}>{'›'}</Text>
-            </TouchableOpacity>
-          </Tooltip>
           <TouchableOpacity
             style={styles.actionRow}
-            onPress={() => {}}
+            onPress={handleOpenSettings}
             activeOpacity={0.7}
             accessibilityRole="button"
-            accessibilityLabel="Rate the App"
+            accessibilityLabel="Settings"
           >
-            <Text style={styles.actionLabel}>Rate the App</Text>
+            <Text style={styles.actionLabel}>Settings</Text>
             <Text style={styles.actionChevron}>{'›'}</Text>
           </TouchableOpacity>
           {!isAnonymous && (
@@ -677,6 +731,147 @@ export default function ProfileScreen() {
           )}
         </View>
       </ScrollView>
+
+      {/* Settings modal */}
+      <Modal
+        visible={settingsVisible}
+        transparent
+        animationType="none"
+        onRequestClose={handleCloseSettings}
+        statusBarTranslucent
+      >
+        <View style={styles.modalWrapper}>
+          <TouchableOpacity
+            style={StyleSheet.absoluteFill}
+            activeOpacity={1}
+            onPress={handleCloseSettings}
+          />
+          <Animated.View
+            style={[
+              styles.settingsSheet,
+              sheetAnimStyle,
+              { paddingBottom: Spacing.xl + insets.bottom },
+            ]}
+          >
+            {/* Drag handle */}
+            <View style={styles.sheetHandle} />
+
+            {/* Sheet header */}
+            <View style={styles.sheetHeader}>
+              <Text style={styles.sheetTitle}>Settings</Text>
+              <TouchableOpacity
+                onPress={handleCloseSettings}
+                style={styles.sheetCloseBtn}
+                accessibilityRole="button"
+                accessibilityLabel="Close settings"
+              >
+                <Text style={styles.sheetCloseIcon}>{'✕'}</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Music */}
+            <Text style={styles.settingsSectionLabel}>Music</Text>
+
+            <View style={styles.settingsRow}>
+              <Text style={styles.settingsRowLabel}>Background Music</Text>
+              <Switch
+                value={isMusicEnabled}
+                onValueChange={setMusicEnabled}
+                trackColor={{ false: Colors.surface2, true: Colors.gold }}
+                thumbColor={Colors.surface}
+                ios_backgroundColor={Colors.surface2}
+              />
+            </View>
+
+            <View style={[styles.settingsRow, !isMusicEnabled && styles.hidden]}>
+                <Text style={styles.settingsRowLabel}>Volume</Text>
+                <View
+                  style={styles.sliderOuter}
+                  onLayout={handleSliderLayout}
+                  {...volumePanResponder.panHandlers}
+                >
+                  <View style={styles.sliderTrack}>
+                    <View
+                      style={[
+                        styles.sliderFill,
+                        { width: `${Math.round(musicVolume * 100)}%` },
+                      ]}
+                    />
+                  </View>
+                  <View
+                    style={[
+                      styles.sliderThumb,
+                      {
+                        left: Math.max(
+                          0,
+                          Math.min(sliderWidth - 20, musicVolume * sliderWidth - 10),
+                        ),
+                      },
+                    ]}
+                  />
+                </View>
+            </View>
+
+            <View style={styles.settingsDivider} />
+
+            {/* App */}
+            <Text style={styles.settingsSectionLabel}>App</Text>
+
+            <TouchableOpacity
+              style={styles.settingsRow}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel="Language"
+            >
+              <Text style={styles.settingsRowLabel}>Language</Text>
+              <Text style={styles.settingsRowValue}>{'English >'}</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.settingsRow}
+              onPress={() =>
+                Linking.openURL(
+                  'https://henrybuildz.github.io/history-quiz-app/privacy.html',
+                ).catch(() => {})
+              }
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel="Privacy Policy"
+            >
+              <Text style={styles.settingsRowLabel}>Privacy Policy</Text>
+              <Text style={styles.actionChevron}>{'›'}</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.settingsRow}
+              onPress={() =>
+                Linking.openURL(
+                  'https://henrybuildz.github.io/history-quiz-app/terms.html',
+                ).catch(() => {})
+              }
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel="Terms of Use"
+            >
+              <Text style={styles.settingsRowLabel}>Terms of Use</Text>
+              <Text style={styles.actionChevron}>{'›'}</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.settingsRow}
+              onPress={() =>
+                Linking.openURL('https://apps.apple.com/app/idPLACEHOLDER').catch(() => {})
+              }
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel="Rate the App"
+            >
+              <Text style={styles.settingsRowLabel}>Rate the App</Text>
+              <Text style={styles.actionChevron}>{'›'}</Text>
+            </TouchableOpacity>
+          </Animated.View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -976,5 +1171,110 @@ const styles = StyleSheet.create({
   },
   loading: {
     opacity: 0.4,
+  },
+  hidden: {
+    display: 'none',
+  },
+  // Settings modal
+  modalWrapper: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0,0,0,0.4)',
+  },
+  settingsSheet: {
+    backgroundColor: Colors.surface,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingTop: Spacing.sm,
+    paddingHorizontal: Spacing.lg,
+  },
+  sheetHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: Radius.full,
+    backgroundColor: Colors.border,
+    alignSelf: 'center',
+    marginBottom: Spacing.md,
+  },
+  sheetHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: Spacing.md,
+  },
+  sheetTitle: {
+    fontFamily: Fonts.displayBold,
+    fontSize: 18,
+    color: Colors.textPrimary,
+  },
+  sheetCloseBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: Colors.surface2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sheetCloseIcon: {
+    fontSize: 12,
+    color: Colors.textMuted,
+  },
+  settingsSectionLabel: {
+    fontFamily: Fonts.displayBold,
+    fontSize: 12,
+    color: Colors.textMuted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+    marginBottom: Spacing.xs,
+    marginTop: Spacing.xs,
+  },
+  settingsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: Spacing.sm + 2,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+  },
+  settingsRowLabel: {
+    fontSize: 15,
+    color: Colors.textPrimary,
+  },
+  settingsRowValue: {
+    fontSize: 15,
+    color: Colors.textMuted,
+  },
+  settingsDivider: {
+    height: 1,
+    backgroundColor: Colors.border,
+    marginVertical: Spacing.sm,
+  },
+  sliderOuter: {
+    flex: 1,
+    height: 40,
+    justifyContent: 'center',
+    marginLeft: Spacing.md,
+  },
+  sliderTrack: {
+    height: 4,
+    backgroundColor: Colors.surface2,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: Radius.full,
+    overflow: 'hidden',
+  },
+  sliderFill: {
+    height: '100%',
+    backgroundColor: Colors.gold,
+  },
+  sliderThumb: {
+    position: 'absolute',
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: Colors.gold,
+    borderWidth: 2,
+    borderColor: Colors.surface,
+    top: 10,
   },
 });

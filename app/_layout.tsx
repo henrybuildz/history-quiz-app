@@ -1,5 +1,5 @@
-import { useEffect } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { useEffect, useRef } from 'react';
+import { AppState, AppStateStatus, StyleSheet, View } from 'react-native';
 import { Stack } from 'expo-router';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -11,6 +11,8 @@ import { AuthProvider } from '../context/AuthContext';
 import { NavigationGuard } from '../context/NavigationGuard';
 import { AchievementToast } from '../components/AchievementToast';
 import { initGuestHearts } from '../lib/supabase';
+import { initAudio, playMusic, pauseMusic, setMusicVolume, unloadAudio } from '../lib/audio';
+import { useAudioStore } from '../stores/audioStore';
 
 // Explicit declaration removes the implicit assumption that __DEV__ is globally
 // typed. In Expo SDK 56 + @types/react-native it always is, but being explicit
@@ -43,6 +45,9 @@ export default function RootLayout() {
     'Cinzel-Bold': require('../assets/fonts/Cinzel-Bold.ttf'),
   });
 
+  const isMusicEnabled = useAudioStore((s) => s.isMusicEnabled);
+  const audioReadyRef = useRef(false);
+
   useEffect(() => {
     initGuestHearts().catch(() => {});
   }, []);
@@ -67,6 +72,59 @@ export default function RootLayout() {
       });
     }
   }, [fontsLoaded, fontError]);
+
+  // Init audio once on mount, play if enabled
+  useEffect(() => {
+    let cancelled = false;
+    initAudio().then(() => {
+      if (cancelled) return;
+      audioReadyRef.current = true;
+      // Read fresh from store — avoids stale closure when persist hydrates after mount
+      if (useAudioStore.getState().isMusicEnabled) {
+        playMusic().catch(() => {});
+      }
+    }).catch(() => {});
+
+    return () => {
+      cancelled = true;
+      unloadAudio().catch(() => {});
+    };
+  }, []);
+
+  // React to enable/disable toggling after init
+  useEffect(() => {
+    if (!audioReadyRef.current) return;
+    if (isMusicEnabled) {
+      playMusic().catch(() => {});
+    } else {
+      pauseMusic().catch(() => {});
+    }
+  }, [isMusicEnabled]);
+
+  // React to volume changes after init — store subscription avoids re-rendering RootLayout on drag
+  useEffect(() => {
+    let prev = useAudioStore.getState().musicVolume;
+    return useAudioStore.subscribe((state) => {
+      if (state.musicVolume === prev) return;
+      prev = state.musicVolume;
+      if (!audioReadyRef.current) return;
+      setMusicVolume(state.musicVolume).catch(() => {});
+    });
+  }, []);
+
+  // Pause when app backgrounds, resume when foregrounded — stable listener reads store at event time
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (state: AppStateStatus) => {
+      if (!audioReadyRef.current) return;
+      if (!useAudioStore.getState().isMusicEnabled) return;
+      if (state === 'active') {
+        playMusic().catch(() => {});
+      } else if (state === 'background' || state === 'inactive') {
+        pauseMusic().catch(() => {});
+      }
+    });
+    return () => subscription.remove();
+  }, []);
 
   if (!fontsLoaded && !fontError) {
     // Wrap in SafeAreaProvider so this View respects the Android status bar.
