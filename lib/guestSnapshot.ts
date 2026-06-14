@@ -1,8 +1,6 @@
 import * as FileSystem from 'expo-file-system/legacy'
 import { MAX_LIVES } from './heartConstants'
 
-declare const __DEV__: boolean
-
 export interface GuestSnapshotData {
   version: 1
   lives: number
@@ -36,9 +34,6 @@ export function writeGuestSnapshot({ lives, coins }: { lives: number; coins: num
     .then(() => {
       // Update cache only after a confirmed write so cold-restart reads stay consistent.
       _snapshotCache = data
-    })
-    .catch((e) => {
-      if (__DEV__) console.warn('[GuestSnapshot] write failed:', e)
     })
 }
 

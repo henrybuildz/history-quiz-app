@@ -1,30 +1,80 @@
-import { useCallback } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import {
   View, Text, TouchableOpacity, StyleSheet,
-  StatusBar
+  StatusBar, Alert, Modal, ActivityIndicator,
 } from 'react-native'
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
+import * as AppleAuthentication from 'expo-apple-authentication'
 import { useAuth } from '../../context/AuthContext'
+import { supabase } from '../../lib/supabase'
 import { Colors, Fonts } from '../../constants/theme'
 
 export default function WelcomeScreen() {
   const router = useRouter()
-  const { signInWithGoogle, isAnonymous } = useAuth()
-  // Live inset so the close button clears the Dynamic Island / notch on every device.
-  // Hardcoding top: 56 placed the button within the safe area on iPhone 14/15 Pro (59 px inset).
+  const { signInWithGoogle, signInWithApple, isAnonymous } = useAuth()
   const insets = useSafeAreaInsets()
+  const [appleAvailable, setAppleAvailable] = useState(false)
+  const [showSuccess, setShowSuccess] = useState(false)
+  const [doneLoading, setDoneLoading] = useState(false)
+
+  useEffect(() => {
+    AppleAuthentication.isAvailableAsync().then(setAppleAvailable).catch(() => {})
+  }, [])
 
   const handleGoogle = useCallback(async () => {
     try {
       await signInWithGoogle()
-      // Navigation handled by NavigationGuard once session changes
+      setShowSuccess(true)
     } catch (err: unknown) {
-      // Google prompt cancelled by user -- no alert needed
       const msg = err instanceof Error ? err.message : String(err)
-      console.log('Google sign-in dismissed:', msg)
+      Alert.alert('Sign-in error', msg)
     }
   }, [signInWithGoogle])
+
+  const handleApple = useCallback(async () => {
+    try {
+      await signInWithApple()
+      setShowSuccess(true)
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err)
+      // ERR_REQUEST_CANCELED = user dismissed the Apple sheet
+      if (msg.includes('ERR_REQUEST_CANCELED')) return
+      console.log('Apple sign-in error:', msg)
+      Alert.alert('Sign-in failed', 'Could not sign in with Apple. Please try again.')
+    }
+  }, [signInWithApple])
+
+  const handleSuccessDone = useCallback(async () => {
+    if (doneLoading) return
+    setDoneLoading(true)
+    try {
+      // Read the user directly from Supabase rather than from React state, which
+      // may lag behind because onAuthStateChange fires asynchronously after sign-in.
+      const { data: { user: currentUser } } = await supabase.auth.getUser()
+      if (!currentUser) {
+        setShowSuccess(false)
+        router.replace('/(auth)/username')
+        return
+      }
+      const { data } = await supabase
+        .from('profiles')
+        .select('username')
+        .eq('id', currentUser.id)
+        .single()
+      setShowSuccess(false)
+      if (data?.username) {
+        router.replace('/(tabs)/profile')
+      } else {
+        router.replace('/(auth)/username')
+      }
+    } catch {
+      setShowSuccess(false)
+      router.replace('/(auth)/username')
+    } finally {
+      setDoneLoading(false)
+    }
+  }, [doneLoading, router])
 
   return (
     <SafeAreaView style={styles.container}>
@@ -61,6 +111,16 @@ export default function WelcomeScreen() {
             <Text style={styles.googleText}>Continue with Google</Text>
           </TouchableOpacity>
 
+          {appleAvailable && (
+            <AppleAuthentication.AppleAuthenticationButton
+              buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
+              buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
+              cornerRadius={12}
+              style={styles.appleButton}
+              onPress={handleApple}
+            />
+          )}
+
           <View style={styles.divider}>
             <View style={styles.dividerLine} />
             <Text style={styles.dividerText}>or</Text>
@@ -95,6 +155,29 @@ export default function WelcomeScreen() {
           </TouchableOpacity>
         )}
       </View>
+
+      <Modal visible={showSuccess} transparent animationType="fade" statusBarTranslucent>
+        <View style={styles.overlay}>
+          <View style={styles.successCard}>
+            <View style={styles.checkCircle}>
+              <Text style={styles.checkMark}>✓</Text>
+            </View>
+            <Text style={styles.successTitle}>You're all signed in!</Text>
+            <Text style={styles.successSubtitle}>Welcome to History Quiz</Text>
+            <TouchableOpacity
+              style={[styles.doneButton, doneLoading && styles.doneButtonDisabled]}
+              onPress={handleSuccessDone}
+              activeOpacity={0.8}
+              disabled={doneLoading}
+            >
+              {doneLoading
+                ? <ActivityIndicator color={Colors.bg} />
+                : <Text style={styles.doneButtonText}>Done</Text>
+              }
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   )
 }
@@ -142,6 +225,10 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     borderRadius: 12,
     gap: 10,
+  },
+  appleButton: {
+    height: 52,
+    width: '100%',
   },
   googleIcon: {
     fontSize: 16,
@@ -194,5 +281,68 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: Colors.textSecondary,
     textDecorationLine: 'underline',
+  },
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 32,
+  },
+  successCard: {
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: 20,
+    paddingVertical: 40,
+    paddingHorizontal: 32,
+    alignItems: 'center',
+    width: '100%',
+    gap: 16,
+  },
+  checkCircle: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: Colors.correct,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
+  checkMark: {
+    fontSize: 36,
+    color: '#FFFFFF',
+    lineHeight: 40,
+  },
+  successTitle: {
+    fontFamily: Fonts.displayBold,
+    fontSize: 20,
+    color: Colors.gold,
+    textAlign: 'center',
+    letterSpacing: 0.5,
+  },
+  successSubtitle: {
+    fontFamily: Fonts.display,
+    fontSize: 13,
+    color: Colors.textMuted,
+    textAlign: 'center',
+  },
+  doneButton: {
+    backgroundColor: Colors.gold,
+    paddingVertical: 14,
+    paddingHorizontal: 48,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 8,
+    minWidth: 140,
+    height: 48,
+  },
+  doneButtonDisabled: { opacity: 0.7 },
+  doneButtonText: {
+    fontFamily: Fonts.displayBold,
+    fontSize: 15,
+    color: Colors.bg,
+    letterSpacing: 0.5,
   },
 })

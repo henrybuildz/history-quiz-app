@@ -47,10 +47,10 @@ type AchievementCardProps = {
 function AchievementCard({ toast, index, insets, onDismiss }: AchievementCardProps) {
   const translateX      = useSharedValue(OFFSCREEN_X);
   const topAnim         = useSharedValue(insets.top + Spacing.sm + index * (CARD_HEIGHT + CARD_GAP));
-  const mountedRef      = useRef(true);
-  const dismissingRef   = useRef(false);
-  const hasMountedRef   = useRef(false);
-  const autoTimerRef    = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const mountedRef           = useRef(true);
+  const dismissingRef        = useRef(false);
+  const hasRepositionedRef   = useRef(false);
+  const autoTimerRef         = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const reduceMotionRef = useRef(false);
 
   const animStyle = useAnimatedStyle(() => ({
@@ -62,7 +62,6 @@ function AchievementCard({ toast, index, insets, onDismiss }: AchievementCardPro
   // Entry animation starts after isReduceMotionEnabled resolves so the duration
   // is always correct. The card sits off-screen at OFFSCREEN_X until then.
   useEffect(() => {
-    hasMountedRef.current = true;
 
     AccessibilityInfo.isReduceMotionEnabled()
       .then(v => {
@@ -98,10 +97,14 @@ function AchievementCard({ toast, index, insets, onDismiss }: AchievementCardPro
   }, []);
 
   // Reposition: animate vertically when a card above this one is dismissed.
-  // hasMountedRef guard prevents an animated reposition on the initial render —
-  // topAnim is already set to the correct position by useSharedValue(initialTop).
+  // Skip the first run (mount) because topAnim is already initialised to the
+  // correct position by useSharedValue. hasRepositionedRef starts false and is
+  // flipped to true after the first run so subsequent index changes do animate.
   useEffect(() => {
-    if (!hasMountedRef.current) return;
+    if (!hasRepositionedRef.current) {
+      hasRepositionedRef.current = true;
+      return;
+    }
     const newTop = insets.top + Spacing.sm + index * (CARD_HEIGHT + CARD_GAP);
     topAnim.value = withTiming(newTop, {
       duration: reduceMotionRef.current ? 0 : REPOSITION_MS,

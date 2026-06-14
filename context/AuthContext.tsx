@@ -6,11 +6,17 @@ import {
   useCallback,
   ReactNode,
 } from 'react'
-import { Alert } from 'react-native'
+import { Platform } from 'react-native'
 import { Session, User } from '@supabase/supabase-js'
 import * as SecureStore from 'expo-secure-store'
+import * as AppleAuthentication from 'expo-apple-authentication'
+import * as WebBrowser from 'expo-web-browser'
+import * as Linking from 'expo-linking'
 import { supabase, resetGuestHeartsInit, clearGuestHearts } from '../lib/supabase'
 import { clearGuestSnapshot } from '../lib/guestSnapshot'
+
+// Required for OAuth browser sessions to complete on iOS.
+WebBrowser.maybeCompleteAuthSession()
 
 const DID_LOG_OUT_KEY = 'did_log_out'
 
@@ -28,11 +34,13 @@ type AuthState = {
   isLoading: boolean
   usernameVersion: number
   didLogOut: boolean
+  isSigningOut: boolean
 }
 
 type AuthActions = {
   signInAnonymously: () => Promise<void>
   signInWithGoogle: () => Promise<void>
+  signInWithApple: () => Promise<void>
   linkGoogle: () => Promise<void>
   signInWithEmail: (email: string, password: string) => Promise<void>
   signUpWithEmail: (email: string, password: string) => Promise<{ needsVerification: boolean }>
@@ -45,11 +53,23 @@ type AuthContextType = AuthState & AuthActions
 
 const AuthContext = createContext<AuthContextType | null>(null)
 
+// Parses access_token + refresh_token from the OAuth callback URL fragment
+// and sets the Supabase session. Works with implicit flow.
+async function _setSessionFromOAuthUrl(url: string) {
+  const fragment = url.includes('#') ? url.split('#')[1] : url.split('?')[1] ?? ''
+  const params = new URLSearchParams(fragment)
+  const accessToken  = params.get('access_token')  ?? ''
+  const refreshToken = params.get('refresh_token') ?? ''
+  if (!accessToken) return { error: new Error(`No access_token in OAuth URL: ${url}`) }
+  return supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken })
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [usernameVersion, setUsernameVersion] = useState(0)
   const [didLogOut, setDidLogOut] = useState(false)
+  const [isSigningOut, setIsSigningOut] = useState(false)
 
   // Monotonically incrementing — NavigationGuard compares against a ref to
   // detect new saves without needing a separate reset signal.
@@ -106,11 +126,46 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const signInWithGoogle = useCallback(async () => {
-    Alert.alert('Coming Soon', 'Google Sign-In requires a full device build.')
+    const redirectTo = Linking.createURL('/')
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo, skipBrowserRedirect: true },
+    })
+    if (error) throw error
+    if (!data.url) throw new Error('No OAuth URL returned from Supabase')
+    const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo)
+    if (result.type !== 'success') return
+    const { error: sessionError } = await _setSessionFromOAuthUrl(result.url)
+    if (sessionError) throw sessionError
+  }, [])
+
+  const signInWithApple = useCallback(async () => {
+    const credential = await AppleAuthentication.signInAsync({
+      requestedScopes: [
+        AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+        AppleAuthentication.AppleAuthenticationScope.EMAIL,
+      ],
+    })
+    if (!credential.identityToken) throw new Error('Apple sign-in returned no identity token')
+    const { error } = await supabase.auth.signInWithIdToken({
+      provider: 'apple',
+      token: credential.identityToken,
+    })
+    if (error) throw error
   }, [])
 
   const linkGoogle = useCallback(async () => {
-    Alert.alert('Coming Soon', 'Google Sign-In requires a full device build.')
+    const redirectTo = Linking.createURL('/')
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo, skipBrowserRedirect: true },
+    })
+    if (error) throw error
+    if (!data.url) throw new Error('No OAuth URL returned from Supabase')
+    const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo)
+    if (result.type !== 'success') return
+    const { error: sessionError } = await _setSessionFromOAuthUrl(result.url)
+    if (sessionError) throw sessionError
   }, [])
 
   const signInWithEmail = useCallback(async (email: string, password: string) => {
@@ -142,14 +197,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const signOut = useCallback(async () => {
+    // isSigningOut set synchronously so NavigationGuard's !session branch never
+    // fires between the setDidLogOut render and the SIGNED_OUT onAuthStateChange.
+    setIsSigningOut(true)
     setDidLogOut(true)
     await SecureStore.setItemAsync(DID_LOG_OUT_KEY, '1').catch(() => {})
     const { error } = await supabase.auth.signOut()
     if (error) {
+      setIsSigningOut(false)
       setDidLogOut(false)
       SecureStore.deleteItemAsync(DID_LOG_OUT_KEY).catch(() => {})
       throw error
     }
+    setIsSigningOut(false)
   }, [])
 
   const isAnonymous = session?.user?.is_anonymous ?? false
@@ -163,8 +223,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isLoading,
         usernameVersion,
         didLogOut,
+        isSigningOut,
         signInAnonymously,
         signInWithGoogle,
+        signInWithApple,
         linkGoogle,
         signInWithEmail,
         signUpWithEmail,

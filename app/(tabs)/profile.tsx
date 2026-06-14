@@ -99,7 +99,7 @@ function StatCard({ item }: { item: StatItem }) {
 
 export default function ProfileScreen() {
   const router = useRouter();
-  const { user, isAnonymous, signOut, triggerUsernameRefresh } = useAuth();
+  const { user, isAnonymous, signOut, triggerUsernameRefresh, didLogOut } = useAuth();
 
   const [profile, setProfile] = useState<ProfileRow | null>(null)
   // Lazy initializer: start in loading state for real users so frame-zero
@@ -413,6 +413,9 @@ export default function ProfileScreen() {
       const { error: dbError } = await supabase
         .from('profiles')
         .upsert({ id: userId, username: trimmed }, { onConflict: 'id' });
+      // triggerUsernameRefresh is a stable Zustand action — safe to call even if
+      // the component unmounts before the guard below runs.
+      if (!dbError) triggerUsernameRefresh();
       if (!isMountedRef.current) return;
       if (dbError) {
         if (dbError.code === '23505') {
@@ -423,7 +426,6 @@ export default function ProfileScreen() {
       }
       Keyboard.dismiss();
       setProfile(prev => prev ? { ...prev, username: trimmed } : prev);
-      triggerUsernameRefresh();
       setEditingUsername(false);
     } catch (err: unknown) {
       if (isMountedRef.current) setEditError(extractErrorMessage(err, 'Could not save username'));
@@ -741,11 +743,11 @@ export default function ProfileScreen() {
             <Text style={styles.actionLabel}>Settings</Text>
             <Text style={styles.actionChevron}>{'›'}</Text>
           </TouchableOpacity>
-          {!isGuest && (
+          {(!isAnonymous && (hasUser || !didLogOut)) && (
             <TouchableOpacity
-              style={[styles.actionRow, (signingOut || profileLoading) && { opacity: 0.5 }]}
+              style={[styles.actionRow, (signingOut || profileLoading || !profile) && { opacity: 0.5 }]}
               onPress={handleLogOut}
-              disabled={signingOut || profileLoading}
+              disabled={signingOut || profileLoading || !profile}
               activeOpacity={0.7}
               accessibilityRole="button"
               accessibilityLabel="Log Out"
