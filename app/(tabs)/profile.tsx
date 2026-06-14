@@ -26,13 +26,14 @@ import Animated, {
 import { useRouter, useFocusEffect } from 'expo-router';
 import { Colors, Fonts, Spacing, Radius } from '../../constants/theme';
 import { useAuth } from '../../context/AuthContext';
-import { supabase, getProfile, ProfileRow, getProfileStats, ProfileStats, XP_PER_LEVEL, getUnlockedAchievements } from '../../lib/supabase';
+import { supabase, getProfile, ProfileRow, getProfileStats, ProfileStats, XP_PER_LEVEL, MAX_LIVES, getUnlockedAchievements } from '../../lib/supabase';
 import { validateUsername } from '../../lib/validation';
 import { extractErrorMessage } from '../../lib/errors';
 import { useProfileSignal } from '../../stores/profileSignal';
 import { useAchievementStore } from '../../stores/achievementStore';
 import { ACHIEVEMENTS } from '../../lib/achievements';
-import { useAudioStore } from '../../stores/audioStore';
+import { useAudioStore } from '../../stores/audioStore'
+import { writeGuestSnapshot, readGuestSnapshot } from '../../lib/guestSnapshot';
 
 // Stable noop used as the return value of fetchProfileData when userId is absent,
 // satisfying useEffect's (() => void) cleanup contract without an inline allocation.
@@ -111,12 +112,17 @@ export default function ProfileScreen() {
   // Declared here (before useFocusEffect) so the !hasUser branch can call
   // setRefreshing and refreshCleanupRef without forward-referencing them.
   const [refreshing, setRefreshing] = useState(false)
+  // undefined = not yet read (loading), null = confirmed absent, value = loaded data.
+  const [guestSnapshot, setGuestSnapshot] = useState<{ coins: number; lives: number } | null | undefined>(undefined)
 
   // Stable primitives derived outside useCallback so deps are exhaustive
   // without capturing the full User object (which changes reference on every
   // token refresh even though the ID is unchanged).
   const userId  = user?.id
   const hasUser = !!user
+  // True for both anonymous sessions and post-logout (no session) — any state
+  // where the user isn't signed in with a real account.
+  const isGuest = isAnonymous || !hasUser
 
   const unlockedIds          = useAchievementStore(s => s.unlockedIds)
   const setUnlocked          = useAchievementStore(s => s.setUnlocked)
@@ -248,8 +254,18 @@ export default function ProfileScreen() {
         // Clear all achievement state (unlocked set AND toast queue) so a newly
         // signed-in user doesn't see the previous user's achievements or toasts.
         clearAllAchievements()
-        return
+        // Load snapshot values so guest profile shows pre-logout coin + life counts.
+        // Reset to undefined first so the stats grid dims while the read is in flight.
+        // Always call setGuestSnapshot (even when s is null) so the loading gate clears.
+        setGuestSnapshot(undefined)
+        let snapshotCancelled = false
+        readGuestSnapshot().then(s => { if (!snapshotCancelled) setGuestSnapshot(s) })
+        return () => { snapshotCancelled = true }
       }
+
+      // Clear any stale snapshot values carried over from a prior guest session
+      // so the Lives stat doesn't briefly flash old data on the next logout.
+      setGuestSnapshot(null)
 
       // Suppress the spinner only when the background fetch for this version
       // succeeded. A failed background fetch leaves bgFetchedVersionRef behind,
@@ -299,9 +315,9 @@ export default function ProfileScreen() {
   // it first caused anonymous users' chosen usernames to be ignored entirely.
   const displayName = useMemo(() => {
     if (profile?.username) return profile.username
-    if (isAnonymous) return 'Guest Scholar'
+    if (isGuest) return 'Guest Scholar'
     return user?.email?.split('@')[0] ?? 'Historian'
-  }, [isAnonymous, profile?.username, user?.email]);
+  }, [isGuest, profile?.username, user?.email]);
 
   const initials = useMemo(
     () => displayName.trim().charAt(0).toUpperCase() || '?',
@@ -319,8 +335,9 @@ export default function ProfileScreen() {
     { label: 'Correct Answers', value: String(stats.correctAnswers) },
     { label: 'Accuracy',        value: `${stats.accuracy}%` },
     { label: 'Level',           value: String(profile?.level ?? 1) },
-    { label: 'Lives',           value: String(profile?.lives ?? 0), heartPrefix: true },
-  ], [profile?.total_score, profile?.level, profile?.lives, stats.quizzesPlayed, stats.correctAnswers, stats.accuracy])
+    { label: 'Coins',           value: String(hasUser ? (profile?.coins ?? 0) : (guestSnapshot?.coins ?? 0)) },
+    { label: 'Lives',           value: String(hasUser ? (profile?.lives ?? 0) : (guestSnapshot?.lives ?? MAX_LIVES)), heartPrefix: true },
+  ], [profile?.total_score, profile?.level, profile?.lives, profile?.coins, stats.quizzesPlayed, stats.correctAnswers, stats.accuracy, hasUser, guestSnapshot?.lives, guestSnapshot?.coins])
 
   const statRows = useMemo<StatItem[][]>(() => Array.from(
     { length: Math.ceil(statItems.length / 2) },
@@ -425,6 +442,9 @@ export default function ProfileScreen() {
     signingOutRef.current = true
     setSigningOut(true)
     try {
+      // Always write a snapshot so the guest session sees real values after logout.
+      // Fall back to MAX_LIVES/0 if the profile fetch failed before the tap.
+      await writeGuestSnapshot({ lives: profile?.lives ?? MAX_LIVES, coins: profile?.coins ?? 0 })
       await signOut()
     } catch {
       Alert.alert('Error', 'Could not sign out. Please try again.')
@@ -432,7 +452,7 @@ export default function ProfileScreen() {
       signingOutRef.current = false
       setSigningOut(false)
     }
-  }, [signOut])
+  }, [signOut, profile])
 
   const handleSignIn = useCallback(() => {
     router.push('/(auth)/welcome')
@@ -516,10 +536,14 @@ export default function ProfileScreen() {
           />
         }
       >
-        {/* Sign-in banner — only shown to anonymous users */}
-        {isAnonymous && (
+        {/* Sign-in banner — shown to anonymous users and post-logout guests */}
+        {isGuest && (
           <View style={styles.banner}>
-            <Text style={styles.bannerText}>Sign in to keep your progress across devices</Text>
+            <Text style={styles.bannerText}>
+              {isAnonymous
+                ? 'Sign in to keep your progress across devices'
+                : 'Sign back in to restore your full account'}
+            </Text>
             <TouchableOpacity
               style={styles.signInButton}
               onPress={handleSignIn}
@@ -620,10 +644,11 @@ export default function ProfileScreen() {
           </View>
         </View>
 
-        {/* Stats grid — dimmed until BOTH profile and stats have loaded, so
-             Total Score / Level never undim while Quizzes / Accuracy still show 0. */}
+        {/* Stats grid — dimmed until data is ready. For signed-in users that means
+             both profile and stats. For guests it also waits for the snapshot read
+             so the Lives cell never flashes MAX_LIVES before the real value arrives. */}
         <Animated.View entering={hasMounted.current ? undefined : ANIM_STATS} style={styles.animWrapper}>
-          <View style={(profileLoading || statsLoading) ? styles.loading : undefined}>
+          <View style={(profileLoading || statsLoading || (!hasUser && guestSnapshot === undefined)) ? styles.loading : undefined}>
             <Text style={styles.sectionTitle}>Statistics</Text>
             <View style={styles.statsGrid}>
               {statRows.map((row) => (
@@ -716,11 +741,11 @@ export default function ProfileScreen() {
             <Text style={styles.actionLabel}>Settings</Text>
             <Text style={styles.actionChevron}>{'›'}</Text>
           </TouchableOpacity>
-          {!isAnonymous && (
+          {!isGuest && (
             <TouchableOpacity
-              style={[styles.actionRow, signingOut && { opacity: 0.5 }]}
+              style={[styles.actionRow, (signingOut || profileLoading) && { opacity: 0.5 }]}
               onPress={handleLogOut}
-              disabled={signingOut}
+              disabled={signingOut || profileLoading}
               activeOpacity={0.7}
               accessibilityRole="button"
               accessibilityLabel="Log Out"

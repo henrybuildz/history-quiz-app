@@ -24,7 +24,7 @@ import { Colors, Fonts, Spacing, Radius } from '../../constants/theme';
 import { useQuizStore } from '../../stores/quizStore';
 import { profileSignalStore } from '../../stores/profileSignal';
 import { useAchievementStore } from '../../stores/achievementStore';
-import { supabase, saveQuizResult, deductLife, regenLives, regenLivesLocal, deductLifeLocal, REGEN_HOURS, LIVES_PER_QUIZ } from '../../lib/supabase';
+import { supabase, saveQuizResult, deductLife, regenLives, regenLivesLocal, deductLifeLocal, initGuestHearts, REGEN_HOURS, LIVES_PER_QUIZ } from '../../lib/supabase';
 import { withTimeout } from '../../lib/withTimeout';
 import { useAuth } from '../../context/AuthContext';
 import { AnimatedSlot } from '../../components/AnimatedSlot';
@@ -425,6 +425,8 @@ export default function QuizScreen() {
     setNextLifeAt(null);
     try {
       // Apply any regenerated hearts before checking if the player can start.
+      // initGuestHearts() is idempotent — resolves immediately if already done.
+      if (!userId) await initGuestHearts()
       const { lives: currentLives, nextLifeAt: nextAt } = userId
         ? await regenLives(userId)
         : regenLivesLocal();

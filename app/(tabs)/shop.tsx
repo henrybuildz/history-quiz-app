@@ -157,7 +157,7 @@ export default function ShopScreen() {
           {heartsDisabled ? (
             <Text style={styles.heartsFullText}>Hearts are full</Text>
           ) : (
-            <Text style={styles.regenText}>Refills 1 heart every 2hrs</Text>
+            <Text style={styles.regenText}>Refills 1 heart every 6hrs</Text>
           )}
         </View>
 

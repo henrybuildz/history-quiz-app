@@ -8,7 +8,11 @@ import {
 } from 'react'
 import { Alert } from 'react-native'
 import { Session, User } from '@supabase/supabase-js'
-import { supabase } from '../lib/supabase'
+import * as SecureStore from 'expo-secure-store'
+import { supabase, resetGuestHeartsInit, clearGuestHearts } from '../lib/supabase'
+import { clearGuestSnapshot } from '../lib/guestSnapshot'
+
+const DID_LOG_OUT_KEY = 'did_log_out'
 
 declare const __DEV__: boolean
 
@@ -23,6 +27,7 @@ type AuthState = {
   isAnonymous: boolean
   isLoading: boolean
   usernameVersion: number
+  didLogOut: boolean
 }
 
 type AuthActions = {
@@ -44,6 +49,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [usernameVersion, setUsernameVersion] = useState(0)
+  const [didLogOut, setDidLogOut] = useState(false)
 
   // Monotonically incrementing — NavigationGuard compares against a ref to
   // detect new saves without needing a separate reset signal.
@@ -51,8 +57,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // ── Bootstrap: restore persisted session ──────────────────────────────────
   useEffect(() => {
-    supabase.auth.getSession()
-      .then(({ data: { session } }) => {
+    Promise.all([
+      supabase.auth.getSession(),
+      SecureStore.getItemAsync(DID_LOG_OUT_KEY).catch(() => null),
+    ])
+      .then(([{ data: { session } }, savedFlag]) => {
+        // Restore guest-mode flag so NavigationGuard skips onboarding after a
+        // cold restart that follows an explicit logout.
+        if (!session && savedFlag === '1') setDidLogOut(true)
         setSession(session)
         setIsLoading(false)
       })
@@ -65,7 +77,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       })
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => setSession(session)
+      (event, session) => {
+        if (event === 'SIGNED_IN') {
+          // Reset guest-mode flag for ALL sign-ins (including anonymous) so
+          // didLogOut is never left stale after a "Continue as Guest" tap.
+          setDidLogOut(false)
+          SecureStore.deleteItemAsync(DID_LOG_OUT_KEY).catch(() => {})
+          if (session?.user && !session.user.is_anonymous) {
+            clearGuestSnapshot()
+            clearGuestHearts()
+          }
+        }
+        if (event === 'SIGNED_OUT') {
+          resetGuestHeartsInit()
+        }
+        setSession(session)
+      }
     )
 
     return () => subscription.unsubscribe()
@@ -115,8 +142,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const signOut = useCallback(async () => {
+    setDidLogOut(true)
+    await SecureStore.setItemAsync(DID_LOG_OUT_KEY, '1').catch(() => {})
     const { error } = await supabase.auth.signOut()
-    if (error) throw error
+    if (error) {
+      setDidLogOut(false)
+      SecureStore.deleteItemAsync(DID_LOG_OUT_KEY).catch(() => {})
+      throw error
+    }
   }, [])
 
   const isAnonymous = session?.user?.is_anonymous ?? false
@@ -129,6 +162,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isAnonymous,
         isLoading,
         usernameVersion,
+        didLogOut,
         signInAnonymously,
         signInWithGoogle,
         linkGoogle,

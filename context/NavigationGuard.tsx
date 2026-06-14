@@ -8,7 +8,7 @@ declare const __DEV__: boolean
 type UsernameCache = { userId: string; username: string | null }
 
 export function NavigationGuard() {
-  const { session, isLoading, usernameVersion } = useAuth()
+  const { session, isLoading, usernameVersion, didLogOut } = useAuth()
   const segments = useSegments()
   const router = useRouter()
   const usernameCache = useRef<UsernameCache | null>(null)
@@ -52,7 +52,9 @@ export function NavigationGuard() {
     prevSegments.current = segs
 
     if (!session) {
-      if (!inAuthGroup) {
+      // didLogOut: user explicitly tapped Log Out → stay in tabs as local guest.
+      // Without it: brand-new user with no session → send to onboarding.
+      if (!inAuthGroup && !didLogOut) {
         router.replace('/(auth)/onboarding')
       }
       return
@@ -119,7 +121,7 @@ export function NavigationGuard() {
     return () => {
       cancelled = true
     }
-  }, [session, isLoading, segments, router, usernameVersion])
+  }, [session, isLoading, segments, router, usernameVersion, didLogOut])
 
   return null
 }

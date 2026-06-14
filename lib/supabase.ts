@@ -2,12 +2,22 @@ import 'react-native-url-polyfill/auto'
 import * as SecureStore from 'expo-secure-store'
 import * as FileSystem from 'expo-file-system/legacy'
 import { createClient } from '@supabase/supabase-js'
+import { readGuestSnapshot } from './guestSnapshot'
+import { MAX_LIVES } from './heartConstants'
 
 declare const __DEV__: boolean
 
+// AFTER_FIRST_UNLOCK allows the auth token to be read during background
+// auto-refresh ticks (e.g. when the device is locked after first unlock).
+// The default WHEN_UNLOCKED causes "User interaction is not allowed" errors
+// when Supabase's token refresh fires while the screen is off.
+const SECURE_STORE_OPTIONS: SecureStore.SecureStoreOptions = {
+  keychainAccessible: SecureStore.AFTER_FIRST_UNLOCK,
+}
+
 const ExpoSecureStoreAdapter = {
-  getItem: (key: string) => SecureStore.getItemAsync(key),
-  setItem: (key: string, value: string) => SecureStore.setItemAsync(key, value),
+  getItem: (key: string) => SecureStore.getItemAsync(key, SECURE_STORE_OPTIONS),
+  setItem: (key: string, value: string) => SecureStore.setItemAsync(key, value, SECURE_STORE_OPTIONS),
   removeItem: (key: string) => SecureStore.deleteItemAsync(key),
 }
 
@@ -163,7 +173,9 @@ export async function spendCoins(
 
 // ── Hearts ─────────────────────────────────────────────────────────────────────
 
-export const MAX_LIVES       = 12
+// MAX_LIVES is defined in heartConstants.ts to avoid a circular import with
+// guestSnapshot.ts. Re-exported here so all callers keep the same import path.
+export { MAX_LIVES } from './heartConstants'
 export const LIVES_PER_QUIZ  = 3                       // hearts available per quiz session
 export const REGEN_HOURS     = 6                       // hours per life regenerated — must match SQL
 const        REGEN_MS        = REGEN_HOURS * 3_600_000 // private; derived from REGEN_HOURS
@@ -253,37 +265,70 @@ export function initGuestHearts(): Promise<void> {
   return _initPromise
 }
 
+// Call after logout so the next initGuestHearts() re-reads from disk (snapshot).
+export function resetGuestHeartsInit(): void {
+  _initPromise = null
+}
+
+// Call on sign-in to remove the prior guest session's hearts file so it doesn't
+// override the snapshot on the next logout-to-guest transition.
+export function clearGuestHearts(): void {
+  const path = _heartsPath()
+  if (!path) return
+  FileSystem.deleteAsync(path, { idempotent: true }).catch(() => {})
+}
+
 async function _doInitGuestHearts(): Promise<void> {
   const path = _heartsPath()
   if (!path) return // web — stay in-memory only
-  try {
-    // Single read — cheaper than getInfoAsync + readAsStringAsync.
-    // Throws if the file doesn't exist; caught below (expected on first launch).
-    const raw = await FileSystem.readAsStringAsync(path)
 
-    // Cast to unknown first — the typeof guards below are the real type validation.
-    const p = JSON.parse(raw) as unknown
-    if (typeof p !== 'object' || p === null || Array.isArray(p)) return
+  // Both reads are independent — run them in parallel to halve cold-start I/O
+  // latency. In the common post-logout case guest-hearts.json is absent (deleted
+  // on prior sign-in), so the snapshot result is always needed anyway.
+  const [heartsRaw, snapshot] = await Promise.all([
+    FileSystem.readAsStringAsync(path).catch(() => {
+      if (__DEV__) console.warn('[GuestHearts] initGuestHearts: file missing or unreadable (normal on first launch)')
+      return null
+    }),
+    readGuestSnapshot(),
+  ])
 
-    const data = p as Record<string, unknown>
+  // Try to seed from the hearts file first.
+  let heartsFileFound = false
+  if (heartsRaw !== null) {
+    try {
+      const p = JSON.parse(heartsRaw) as unknown
+      if (typeof p === 'object' && p !== null && !Array.isArray(p)) {
+        const data = p as Record<string, unknown>
 
-    const livesRaw = data.lives
-    const lives = typeof livesRaw === 'number' && Number.isFinite(livesRaw)
-      ? Math.max(0, Math.min(MAX_LIVES, Math.round(livesRaw)))
-      : MAX_LIVES
+        const livesRaw = data.lives
+        const livesValid = typeof livesRaw === 'number' && Number.isFinite(livesRaw)
+        const lives = livesValid
+          ? Math.max(0, Math.min(MAX_LIVES, Math.round(livesRaw as number)))
+          : MAX_LIVES
 
-    // Validate the date string is parseable — rejects "not-a-date" strings.
-    const rawDate = data.last_life_lost_at
-    const last_life_lost_at =
-      typeof rawDate === 'string' && !isNaN(new Date(rawDate).getTime())
-        ? rawDate
-        : null
+        const rawDate = data.last_life_lost_at
+        const last_life_lost_at =
+          typeof rawDate === 'string' && !isNaN(new Date(rawDate).getTime())
+            ? rawDate
+            : null
 
-    _guestHeartsCache = { lives, last_life_lost_at }
-  } catch {
-    // File absent (first launch) or corrupt — cache stays at MAX_LIVES default.
-    // Will be overwritten with real data on the next _writeGuestHearts call.
-    if (__DEV__) console.warn('[GuestHearts] initGuestHearts: file missing or unreadable (normal on first launch)')
+        _guestHeartsCache = { lives, last_life_lost_at }
+        // Only mark found when lives parsed cleanly — a corrupt lives field falls
+        // through to snapshot seeding so the real pre-logout count is restored.
+        if (livesValid) heartsFileFound = true
+      }
+    } catch {
+      // Corrupt JSON — fall through to snapshot seeding below.
+    }
+  }
+
+  // Seed from logout snapshot when no valid hearts file was found.
+  if (!heartsFileFound && snapshot) {
+    _guestHeartsCache = {
+      lives: snapshot.lives,
+      last_life_lost_at: snapshot.lastLifeLostAt,
+    }
   }
 }
 
