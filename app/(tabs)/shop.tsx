@@ -14,14 +14,15 @@ import { useFocusEffect } from 'expo-router'
 import { useAuth } from '../../context/AuthContext'
 import { getProfile, spendCoins } from '../../lib/supabase'
 import { Colors, Fonts, Spacing, Radius } from '../../constants/theme'
+import { CoinIcon } from '../../components/CoinIcon'
 
 declare const __DEV__: boolean
 
 const MAX_LIVES = 12
 
 const HEART_ITEMS = {
-  heart1: { cost: 25,  hearts: 1, name: '+1 Heart',  label: '❤️  +1 Heart',  costLabel: '25🪙'  },
-  heart5: { cost: 100, hearts: 5, name: '+5 Hearts', label: '❤️  +5 Hearts', costLabel: '100🪙' },
+  heart1: { cost: 25,  hearts: 1, name: '+1 Heart',  label: '❤️  +1 Heart'  },
+  heart5: { cost: 100, hearts: 5, name: '+5 Hearts', label: '❤️  +5 Hearts' },
 } as const
 
 type HeartItemKey = keyof typeof HEART_ITEMS
@@ -162,7 +163,7 @@ export default function ShopScreen() {
         <View style={styles.header}>
           <Text style={styles.headerTitle}>SHOP</Text>
           <View style={styles.coinBadge}>
-            <Text style={styles.coinEmoji}>🪙</Text>
+            <CoinIcon size="md" />
             <Text style={styles.coinCount}>{coins}</Text>
           </View>
         </View>
@@ -185,7 +186,10 @@ export default function ShopScreen() {
                 {loadingItem === key ? (
                   <ActivityIndicator size="small" color={Colors.gold} />
                 ) : (
-                  <Text style={styles.itemCost}>{item.costLabel}</Text>
+                  <View style={styles.coinRow}>
+                    <Text style={styles.itemCost}>{item.cost}</Text>
+                    <CoinIcon size="sm" />
+                  </View>
                 )}
               </TouchableOpacity>
             )
@@ -208,7 +212,10 @@ export default function ShopScreen() {
               onPress={() => Alert.alert('Coming Soon', 'In-app purchases coming soon.')}
               activeOpacity={0.7}
             >
-              <Text style={styles.packCoins}>100🪙</Text>
+              <View style={styles.coinRow}>
+                <CoinIcon size="sm" />
+                <Text style={styles.packCoins}>100</Text>
+              </View>
               <Text style={styles.packPrice}>$0.99</Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -216,7 +223,10 @@ export default function ShopScreen() {
               onPress={() => Alert.alert('Coming Soon', 'In-app purchases coming soon.')}
               activeOpacity={0.7}
             >
-              <Text style={styles.packCoins}>500🪙</Text>
+              <View style={styles.coinRow}>
+                <CoinIcon size="sm" />
+                <Text style={styles.packCoins}>500</Text>
+              </View>
               <Text style={styles.packPrice}>$3.99</Text>
             </TouchableOpacity>
           </View>
@@ -226,7 +236,8 @@ export default function ShopScreen() {
             onPress={() => Alert.alert('Coming Soon', 'In-app purchases coming soon.')}
             activeOpacity={0.7}
           >
-            <Text style={styles.packCoins}>1200🪙</Text>
+            <CoinIcon size="sm" />
+            <Text style={styles.packCoins}>1200</Text>
             <Text style={styles.packPrice}>$7.99  ★ BEST</Text>
           </TouchableOpacity>
         </View>
@@ -240,7 +251,8 @@ export default function ShopScreen() {
             onPress={() => Alert.alert('Coming Soon', 'Ad rewards coming soon.')}
             activeOpacity={0.7}
           >
-            <Text style={styles.itemLabel}>📺  Watch for 10🪙</Text>
+            <Text style={styles.itemLabel}>Watch for 10</Text>
+            <CoinIcon size="sm" />
           </TouchableOpacity>
 
           <Text style={styles.regenText}>3 remaining today</Text>
@@ -287,13 +299,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.xs,
-  },
-  coinEmoji: {
-    fontSize: 16,
+    backgroundColor: Colors.surface2,
+    borderWidth: 2,
+    borderColor: Colors.gold,
+    borderRadius: Radius.full,
+    paddingHorizontal: Spacing.sm + 2,
+    paddingVertical: Spacing.xs + 1,
   },
   coinCount: {
     fontFamily: Fonts.displayBold,
-    fontSize: 18,
+    fontSize: 17,
     color: Colors.gold,
   },
   card: {
@@ -314,7 +329,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: Colors.bg,
+    backgroundColor: Colors.surface2,
     borderWidth: 1,
     borderColor: Colors.border,
     borderRadius: 10,
@@ -328,6 +343,11 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.display,
     fontSize: 14,
     color: Colors.textPrimary,
+  },
+  coinRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
   },
   itemCost: {
     fontFamily: Fonts.displayBold,
@@ -351,7 +371,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   packButton: {
-    backgroundColor: Colors.bg,
+    backgroundColor: Colors.surface2,
     borderWidth: 1,
     borderColor: Colors.border,
     borderRadius: 10,
@@ -365,18 +385,19 @@ const styles = StyleSheet.create({
   },
   packButtonBest: {
     borderColor: Colors.gold,
+    borderWidth: 2,
     flexDirection: 'row',
     justifyContent: 'center',
     gap: Spacing.sm,
   },
   packCoins: {
     fontFamily: Fonts.displayBold,
-    fontSize: 14,
+    fontSize: 15,
     color: Colors.textPrimary,
   },
   packPrice: {
     fontFamily: Fonts.displayBold,
     fontSize: 13,
-    color: Colors.textPrimary,
+    color: Colors.textSecondary,
   },
 })

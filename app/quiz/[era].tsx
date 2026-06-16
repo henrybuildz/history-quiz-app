@@ -28,6 +28,7 @@ import { supabase, saveQuizResult, deductLife, regenLives, regenLivesLocal, dedu
 import { withTimeout } from '../../lib/withTimeout';
 import { useAuth } from '../../context/AuthContext';
 import { AnimatedSlot } from '../../components/AnimatedSlot';
+import { CoinIcon } from '../../components/CoinIcon';
 import type { Question, Era } from '../../types';
 
 // ─── Types & Utilities ────────────────────────────────────────────────────────
@@ -295,12 +296,14 @@ const ResultsModal = memo(function ResultsModal({
           {/* Coins line: shown only after the save resolves with a positive award.
               Zero-coin sessions (anonymous users, save failures) render nothing. */}
           {coinsEarned > 0 && (
-            <Text
-              style={modalStyles.coinsEarnedText}
+            <View
+              style={modalStyles.coinsEarnedRow}
               accessibilityLabel={`You earned ${coinsEarned} coins`}
+              accessible
             >
-              +{coinsEarned} 🪙
-            </Text>
+              <Text style={modalStyles.coinsEarnedText}>+{coinsEarned}</Text>
+              <CoinIcon size="md" />
+            </View>
           )}
 
           <TouchableOpacity
@@ -1124,6 +1127,11 @@ const modalStyles = StyleSheet.create({
   },
   statValueXp: {
     color: Colors.gold,
+  },
+  coinsEarnedRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
   coinsEarnedText: {
     fontFamily: Fonts.displayBold,
