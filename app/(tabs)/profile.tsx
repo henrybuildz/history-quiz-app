@@ -1403,8 +1403,8 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   logoutSubtitle: {
-    fontSize: 14,
-    color: Colors.textMuted,
+    fontSize: 15,
+    color: Colors.textSecondary,
     textAlign: 'center',
     marginBottom: Spacing.lg,
   },
