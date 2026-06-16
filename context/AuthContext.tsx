@@ -39,9 +39,9 @@ type AuthState = {
 
 type AuthActions = {
   signInAnonymously: () => Promise<void>
-  signInWithGoogle: () => Promise<void>
+  signInWithGoogle: () => Promise<boolean>
   signInWithApple: () => Promise<void>
-  linkGoogle: () => Promise<void>
+  linkGoogle: () => Promise<boolean>
   signInWithEmail: (email: string, password: string) => Promise<void>
   signUpWithEmail: (email: string, password: string) => Promise<{ needsVerification: boolean }>
   linkEmail: (email: string, password: string) => Promise<void>
@@ -54,13 +54,14 @@ type AuthContextType = AuthState & AuthActions
 const AuthContext = createContext<AuthContextType | null>(null)
 
 // Parses access_token + refresh_token from the OAuth callback URL fragment
-// and sets the Supabase session. Works with implicit flow.
+// and sets the Supabase session. The Supabase project uses implicit flow so
+// tokens arrive in the URL fragment (#access_token=...&refresh_token=...).
 async function _setSessionFromOAuthUrl(url: string) {
   const fragment = url.includes('#') ? url.split('#')[1] : url.split('?')[1] ?? ''
   const params = new URLSearchParams(fragment)
   const accessToken  = params.get('access_token')  ?? ''
   const refreshToken = params.get('refresh_token') ?? ''
-  if (!accessToken) return { error: new Error(`No access_token in OAuth URL: ${url}`) }
+  if (!accessToken) return { error: new Error('Google sign-in failed: no access token in callback') }
   return supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken })
 }
 
@@ -125,7 +126,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (error) throw error
   }, [])
 
-  const signInWithGoogle = useCallback(async () => {
+  const signInWithGoogle = useCallback(async (): Promise<boolean> => {
     const redirectTo = Linking.createURL('/')
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
@@ -134,9 +135,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (error) throw error
     if (!data.url) throw new Error('No OAuth URL returned from Supabase')
     const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo)
-    if (result.type !== 'success') return
+    if (result.type !== 'success') return false
     const { error: sessionError } = await _setSessionFromOAuthUrl(result.url)
     if (sessionError) throw sessionError
+    return true
   }, [])
 
   const signInWithApple = useCallback(async () => {
@@ -154,18 +156,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (error) throw error
   }, [])
 
-  const linkGoogle = useCallback(async () => {
+  const linkGoogle = useCallback(async (): Promise<boolean> => {
     const redirectTo = Linking.createURL('/')
-    const { data, error } = await supabase.auth.signInWithOAuth({
+    const { data, error } = await supabase.auth.linkIdentity({
       provider: 'google',
       options: { redirectTo, skipBrowserRedirect: true },
     })
     if (error) throw error
     if (!data.url) throw new Error('No OAuth URL returned from Supabase')
     const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo)
-    if (result.type !== 'success') return
+    if (result.type !== 'success') return false
     const { error: sessionError } = await _setSessionFromOAuthUrl(result.url)
     if (sessionError) throw sessionError
+    return true
   }, [])
 
   const signInWithEmail = useCallback(async (email: string, password: string) => {

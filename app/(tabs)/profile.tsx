@@ -439,16 +439,33 @@ export default function ProfileScreen() {
   // Ref guards against double-fire without needing to be a useCallback dep.
   // useState(signingOut) is kept separately for UI-only updates (disabled, text).
   const signingOutRef = useRef(false);
+
+  const [logoutModalVisible, setLogoutModalVisible] = useState(false);
+  const [logoutDone, setLogoutDone] = useState(false);
+
+  const handleLogOutPress = useCallback(() => {
+    setLogoutDone(false);
+    setLogoutModalVisible(true);
+  }, []);
+
+  const handleLogOutCancel = useCallback(() => {
+    if (signingOutRef.current) return;
+    setLogoutModalVisible(false);
+  }, []);
+
   const handleLogOut = useCallback(async () => {
     if (signingOutRef.current) return
     signingOutRef.current = true
     setSigningOut(true)
     try {
-      // Always write a snapshot so the guest session sees real values after logout.
-      // Fall back to MAX_LIVES/0 if the profile fetch failed before the tap.
       await writeGuestSnapshot({ lives: profile?.lives ?? MAX_LIVES, coins: profile?.coins ?? 0 })
       await signOut()
+      setLogoutDone(true)
+      setTimeout(() => {
+        if (isMountedRef.current) setLogoutModalVisible(false)
+      }, 1500)
     } catch {
+      setLogoutModalVisible(false)
       Alert.alert('Error', 'Could not sign out. Please try again.')
     } finally {
       signingOutRef.current = false
@@ -746,13 +763,13 @@ export default function ProfileScreen() {
           {(!isAnonymous && (hasUser || !didLogOut)) && (
             <TouchableOpacity
               style={[styles.actionRow, (signingOut || profileLoading || !profile) && { opacity: 0.5 }]}
-              onPress={handleLogOut}
+              onPress={handleLogOutPress}
               disabled={signingOut || profileLoading || !profile}
               activeOpacity={0.7}
               accessibilityRole="button"
               accessibilityLabel="Log Out"
             >
-              <Text style={styles.actionLabel}>{signingOut ? 'Signing out...' : 'Log Out'}</Text>
+              <Text style={styles.actionLabel}>Log Out</Text>
               <Text style={styles.actionChevron}>{'›'}</Text>
             </TouchableOpacity>
           )}
@@ -897,6 +914,58 @@ export default function ProfileScreen() {
               <Text style={styles.actionChevron}>{'›'}</Text>
             </TouchableOpacity>
           </Animated.View>
+        </View>
+      </Modal>
+
+      {/* Logout confirmation modal */}
+      <Modal
+        visible={logoutModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={handleLogOutCancel}
+        statusBarTranslucent
+      >
+        <View style={styles.logoutBackdrop}>
+          <View style={styles.logoutCard}>
+            {logoutDone ? (
+              <>
+                <Text style={styles.logoutDoneIcon}>{'✓'}</Text>
+                <Text style={styles.logoutTitle}>Done</Text>
+                <Text style={styles.logoutSubtitle}>You've been signed out.</Text>
+              </>
+            ) : (
+              <>
+                <Text style={styles.logoutTitle}>Log Out?</Text>
+                <Text style={styles.logoutSubtitle}>
+                  Are you sure you want to sign out?
+                </Text>
+                <View style={styles.logoutButtons}>
+                  <TouchableOpacity
+                    style={styles.logoutCancelBtn}
+                    onPress={handleLogOutCancel}
+                    disabled={signingOut}
+                    activeOpacity={0.7}
+                    accessibilityRole="button"
+                    accessibilityLabel="Cancel"
+                  >
+                    <Text style={styles.logoutCancelText}>Cancel</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.logoutConfirmBtn, signingOut && { opacity: 0.5 }]}
+                    onPress={handleLogOut}
+                    disabled={signingOut}
+                    activeOpacity={0.7}
+                    accessibilityRole="button"
+                    accessibilityLabel="Confirm log out"
+                  >
+                    <Text style={styles.logoutConfirmText}>
+                      {signingOut ? 'Signing out...' : 'Log Out'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            )}
+          </View>
         </View>
       </Modal>
     </SafeAreaView>
@@ -1303,5 +1372,71 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: Colors.surface,
     top: 10,
+  },
+  logoutBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.xl,
+  },
+  logoutCard: {
+    backgroundColor: Colors.surface,
+    borderRadius: Radius.lg,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    paddingVertical: Spacing.xl,
+    paddingHorizontal: Spacing.lg,
+    alignItems: 'center',
+    width: '100%',
+  },
+  logoutDoneIcon: {
+    fontSize: 40,
+    color: Colors.correct,
+    marginBottom: Spacing.sm,
+  },
+  logoutTitle: {
+    fontFamily: Fonts.displayBold,
+    fontSize: 20,
+    color: Colors.textPrimary,
+    marginBottom: Spacing.sm,
+    textAlign: 'center',
+  },
+  logoutSubtitle: {
+    fontSize: 14,
+    color: Colors.textMuted,
+    textAlign: 'center',
+    marginBottom: Spacing.lg,
+  },
+  logoutButtons: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
+    width: '100%',
+  },
+  logoutCancelBtn: {
+    flex: 1,
+    paddingVertical: Spacing.sm + 2,
+    borderRadius: Radius.md,
+    backgroundColor: Colors.surface2,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    alignItems: 'center',
+  },
+  logoutCancelText: {
+    fontFamily: Fonts.displayBold,
+    fontSize: 14,
+    color: Colors.textSecondary,
+  },
+  logoutConfirmBtn: {
+    flex: 1,
+    paddingVertical: Spacing.sm + 2,
+    borderRadius: Radius.md,
+    backgroundColor: Colors.wrong,
+    alignItems: 'center',
+  },
+  logoutConfirmText: {
+    fontFamily: Fonts.displayBold,
+    fontSize: 14,
+    color: '#FFF9F0',
   },
 });

@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import {
   View,
   Text,
@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   Alert,
   ActivityIndicator,
+  RefreshControl,
   StyleSheet,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
@@ -42,7 +43,10 @@ export default function ShopScreen() {
   const [coins, setCoins] = useState(0)
   const [lives, setLives] = useState(0)
   const [loadingItem, setLoadingItem] = useState<LoadingItem>(null)
+  const [refreshing, setRefreshing] = useState(false)
   const purchaseInProgress = useRef(false)
+  const refreshCleanupRef = useRef<(() => void) | null>(null)
+  useEffect(() => () => { refreshCleanupRef.current?.() }, [])
 
   // Extract primitive so useCallback dep is a stable string, not an object.
   // If user?.id is undefined (no session), the callback resets state to 0.
@@ -76,6 +80,31 @@ export default function ShopScreen() {
       }
     }, [userId])
   )
+
+  const handleRefresh = useCallback(() => {
+    if (!userId || purchaseInProgress.current) return
+    refreshCleanupRef.current?.()
+    let cancelled = false
+    refreshCleanupRef.current = () => { cancelled = true }
+    setRefreshing(true)
+    Promise.all([
+      getProfile(userId),
+      new Promise<void>(resolve => setTimeout(resolve, 600)),
+    ])
+      .then(([profile]) => {
+        if (cancelled) return
+        if (profile) {
+          setCoins(profile.coins)
+          setLives(profile.lives)
+        }
+      })
+      .catch((err: unknown) => {
+        if (__DEV__) console.error('[ShopScreen] refresh failed:', err)
+      })
+      .finally(() => {
+        if (!cancelled) setRefreshing(false)
+      })
+  }, [userId])
 
   // Defined before early return so it's always in the same position
   // in the component body regardless of render path.
@@ -120,6 +149,14 @@ export default function ShopScreen() {
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor={Colors.gold}
+            colors={[Colors.gold]}
+          />
+        }
       >
         {/* ── Header ── */}
         <View style={styles.header}>
@@ -298,14 +335,14 @@ const styles = StyleSheet.create({
     color: Colors.gold,
   },
   regenText: {
-    fontFamily: Fonts.display,
-    fontSize: 12,
-    color: Colors.textMuted,
+    fontFamily: Fonts.displayBold,
+    fontSize: 13,
+    color: Colors.textPrimary,
     textAlign: 'center',
   },
   heartsFullText: {
-    fontFamily: Fonts.display,
-    fontSize: 12,
+    fontFamily: Fonts.displayBold,
+    fontSize: 13,
     color: Colors.gold,
     textAlign: 'center',
   },
@@ -338,8 +375,8 @@ const styles = StyleSheet.create({
     color: Colors.textPrimary,
   },
   packPrice: {
-    fontFamily: Fonts.display,
-    fontSize: 12,
-    color: Colors.textMuted,
+    fontFamily: Fonts.displayBold,
+    fontSize: 13,
+    color: Colors.textPrimary,
   },
 })

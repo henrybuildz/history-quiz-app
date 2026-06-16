@@ -9,7 +9,11 @@
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.henryapps.historyquiz"
+      "bundleIdentifier": "com.henryapps.historyquiz",
+      "usesAppleSignIn": true,
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "package": "com.henryapps.historyquiz",
@@ -39,7 +43,8 @@
         }
       ],
       "expo-dev-client",
-      "@react-native-google-signin/google-signin"
+      "@react-native-google-signin/google-signin",
+      "expo-apple-authentication"
     ],
     "extra": {
       "router": {},

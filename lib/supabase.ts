@@ -34,6 +34,11 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: false,
+    // implicit flow: the Supabase project returns tokens in the redirect URL
+    // fragment (#access_token=...). The native Google OAuth path parses these
+    // manually via _setSessionFromOAuthUrl in AuthContext. Apple Sign-In is
+    // unaffected — it uses signInWithIdToken and never touches a redirect URL.
+    flowType: 'implicit',
   },
 })
 

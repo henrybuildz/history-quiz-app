@@ -12,7 +12,7 @@ import { Colors, Fonts } from '../../constants/theme'
 
 export default function WelcomeScreen() {
   const router = useRouter()
-  const { signInWithGoogle, signInWithApple, isAnonymous } = useAuth()
+  const { signInWithGoogle, signInWithApple, linkGoogle, isAnonymous } = useAuth()
   const insets = useSafeAreaInsets()
   const [appleAvailable, setAppleAvailable] = useState(false)
   const [showSuccess, setShowSuccess] = useState(false)
@@ -24,13 +24,16 @@ export default function WelcomeScreen() {
 
   const handleGoogle = useCallback(async () => {
     try {
-      await signInWithGoogle()
+      // Anonymous users link their identity so guest progress is preserved.
+      // Non-anonymous users (re-login) create a fresh session via signInWithGoogle.
+      const signedIn = await (isAnonymous ? linkGoogle() : signInWithGoogle())
+      if (!signedIn) return  // user cancelled the browser sheet
       setShowSuccess(true)
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err)
       Alert.alert('Sign-in error', msg)
     }
-  }, [signInWithGoogle])
+  }, [signInWithGoogle, linkGoogle, isAnonymous])
 
   const handleApple = useCallback(async () => {
     try {
